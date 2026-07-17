@@ -25,6 +25,7 @@ import {
   type PageSection,
   type PageSectionGroup,
 } from "@/lib/page-builder";
+import type { ProjectDetail } from "@/lib/projects";
 
 const BLOCK_LABELS: Record<BlockType, string> = {
   link_button: "Link Button",
@@ -54,9 +55,15 @@ interface BlocksEditorProps {
   profileId: string;
   sections: PageSection[];
   blocks: PageBlock[];
+  projects: ProjectDetail[];
 }
 
-export function BlocksEditor({ profileId, sections, blocks }: BlocksEditorProps) {
+export function BlocksEditor({
+  profileId,
+  sections,
+  blocks,
+  projects,
+}: BlocksEditorProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [sectionSaving, setSectionSaving] = useState(false);
@@ -442,6 +449,7 @@ export function BlocksEditor({ profileId, sections, blocks }: BlocksEditorProps)
           setSelectedSectionId={setSelectedSectionId}
           blockType={activeBlockType}
           initialConfig={block.config as Record<string, unknown>}
+          projects={projects}
           onSave={(config) => handleSaveEdit(config, block)}
           onCancel={closeBlockDraft}
           saving={saving}
@@ -480,6 +488,7 @@ export function BlocksEditor({ profileId, sections, blocks }: BlocksEditorProps)
           setSelectedSectionId={setSelectedSectionId}
           blockType={creatingType}
           initialConfig={{}}
+          projects={projects}
           onSave={handleCreateBlock}
           onCancel={closeBlockDraft}
           saving={saving}
@@ -904,6 +913,7 @@ interface BlockDraftFieldsProps {
   selectedSectionId: string | null;
   setSelectedSectionId: (_value: string | null) => void;
   initialConfig: Record<string, unknown>;
+  projects: ProjectDetail[];
   onSave: (_config: Record<string, unknown>) => void;
   onCancel: () => void;
   saving: boolean;
@@ -917,6 +927,7 @@ function BlockDraftFields({
   selectedSectionId,
   setSelectedSectionId,
   initialConfig,
+  projects,
   onSave,
   onCancel,
   saving,
@@ -943,6 +954,7 @@ function BlockDraftFields({
       <BlockConfigForm
         blockType={blockType}
         initialConfig={initialConfig}
+        projects={projects}
         onSave={onSave}
         onCancel={onCancel}
         saving={saving}

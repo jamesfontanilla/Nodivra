@@ -252,9 +252,191 @@ export interface Database {
           deleted_at?: string | null;
         };
       };
+      projects: {
+        Row: {
+          id: string;
+          profile_id: string;
+          title: string;
+          slug: string;
+          summary: string;
+          case_study_md: string;
+          role: string;
+          project_type: Database["public"]["Enums"]["project_type"];
+          status: Database["public"]["Enums"]["project_status"];
+          start_date: string | null;
+          end_date: string | null;
+          cover_image_url: string | null;
+          cover_image_alt: string | null;
+          cover_image_caption: string | null;
+          lessons_learned: string | null;
+          search_text: string;
+          position: number;
+          is_featured: boolean;
+          is_visible: boolean;
+          is_published: boolean;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          title: string;
+          slug: string;
+          summary?: string;
+          case_study_md?: string;
+          role?: string;
+          project_type?: Database["public"]["Enums"]["project_type"];
+          status?: Database["public"]["Enums"]["project_status"];
+          start_date?: string | null;
+          end_date?: string | null;
+          cover_image_url?: string | null;
+          cover_image_alt?: string | null;
+          cover_image_caption?: string | null;
+          lessons_learned?: string | null;
+          search_text?: string;
+          position?: number;
+          is_featured?: boolean;
+          is_visible?: boolean;
+          is_published?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          title?: string;
+          slug?: string;
+          summary?: string;
+          case_study_md?: string;
+          role?: string;
+          project_type?: Database["public"]["Enums"]["project_type"];
+          status?: Database["public"]["Enums"]["project_status"];
+          start_date?: string | null;
+          end_date?: string | null;
+          cover_image_url?: string | null;
+          cover_image_alt?: string | null;
+          cover_image_caption?: string | null;
+          lessons_learned?: string | null;
+          search_text?: string;
+          position?: number;
+          is_featured?: boolean;
+          is_visible?: boolean;
+          is_published?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+      };
+      project_technologies: {
+        Row: {
+          id: string;
+          project_id: string;
+          name: string;
+          position: number;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          name: string;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          name?: string;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+      };
+      project_tags: {
+        Row: {
+          id: string;
+          project_id: string;
+          name: string;
+          position: number;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          name: string;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          name?: string;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+      };
+      project_links: {
+        Row: {
+          id: string;
+          project_id: string;
+          kind: Database["public"]["Enums"]["project_link_kind"];
+          url: string;
+          position: number;
+          is_visible: boolean;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          kind: Database["public"]["Enums"]["project_link_kind"];
+          url: string;
+          position?: number;
+          is_visible?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          kind?: Database["public"]["Enums"]["project_link_kind"];
+          url?: string;
+          position?: number;
+          is_visible?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
-    Enums: Record<string, never>;
+    Enums: {
+      project_status: "draft" | "in_progress" | "shipped" | "archived";
+      project_type:
+        | "web_app"
+        | "mobile_app"
+        | "library"
+        | "tool"
+        | "design_system"
+        | "open_source"
+        | "experiment"
+        | "other";
+      project_link_kind: "live" | "repository" | "demo";
+    };
   };
 }

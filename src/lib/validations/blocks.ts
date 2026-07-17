@@ -40,6 +40,7 @@ export const socialLinkConfigSchema = z.object({
 });
 
 export const projectHighlightConfigSchema = z.object({
+  project_id: z.string().uuid().optional().nullable(),
   name: z.string().min(1).max(100),
   description: z.string().max(300).optional().nullable(),
   url: optionalUrl,

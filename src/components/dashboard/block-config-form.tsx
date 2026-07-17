@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { BlockType } from "@/lib/validations/blocks";
+import { getProjectLink, type ProjectDetail } from "@/lib/projects";
 
 interface BlockConfigFormProps {
   blockType: BlockType;
@@ -12,13 +13,58 @@ interface BlockConfigFormProps {
   onSave: (config: Record<string, unknown>) => void;
   onCancel: () => void;
   saving: boolean;
+  projects?: ProjectDetail[];
 }
 
-export function BlockConfigForm({ blockType, initialConfig, onSave, onCancel, saving }: BlockConfigFormProps) {
+export function BlockConfigForm({
+  blockType,
+  initialConfig,
+  onSave,
+  onCancel,
+  saving,
+  projects = [],
+}: BlockConfigFormProps) {
   const [config, setConfig] = useState<Record<string, unknown>>(initialConfig);
+
+  useEffect(() => {
+    setConfig(initialConfig);
+  }, [initialConfig]);
 
   function set(key: string, value: unknown) {
     setConfig((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function applyProject(projectId: string) {
+    if (!projectId) {
+      setConfig((prev) => ({ ...prev, project_id: null }));
+      return;
+    }
+
+    const selectedProject = projects.find(
+      (project) => project.project.id === projectId
+    );
+    if (!selectedProject) return;
+
+    const liveUrl = getProjectLink(selectedProject.links, "live")?.url ?? null;
+    const repoUrl =
+      getProjectLink(selectedProject.links, "repository")?.url ?? null;
+    const demoUrl = getProjectLink(selectedProject.links, "demo")?.url ?? null;
+
+    setConfig((prev) => ({
+      ...prev,
+      project_id: projectId,
+      name: selectedProject.project.title,
+      description: selectedProject.project.summary,
+      url: liveUrl ?? demoUrl,
+      repo_url: repoUrl,
+      technologies: selectedProject.technologies.map((item) => item.name),
+      status:
+        selectedProject.project.status === "archived"
+          ? "archived"
+          : selectedProject.project.status === "shipped"
+            ? "active"
+            : "wip",
+    }));
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -46,6 +92,24 @@ export function BlockConfigForm({ blockType, initialConfig, onSave, onCancel, sa
 
       {blockType === "project_highlight" && (
         <>
+          {projects.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-xs">Reference project</Label>
+              <select
+                value={(config.project_id as string) ?? ""}
+                onChange={(event) => applyProject(event.target.value)}
+                className="flex h-11 w-full rounded-xl ring-1 ring-black/8 dark:ring-white/8 bg-white/60 dark:bg-white/4 px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+              >
+                <option value="">Manual highlight</option>
+                {projects.map((project) => (
+                  <option key={project.project.id} value={project.project.id}>
+                    {project.project.title}
+                    {project.project.is_published ? "" : " (draft)"}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <Field label="Project Name" value={config.name as string ?? ""} onChange={(v) => set("name", v)} placeholder="My Project" required />
           <Field label="Description" value={config.description as string ?? ""} onChange={(v) => set("description", v || null)} placeholder="A short description" />
           <Field label="Project URL" value={config.url as string ?? ""} onChange={(v) => set("url", v || null)} placeholder="https://project.com" type="url" />

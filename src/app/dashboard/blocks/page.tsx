@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createServerSupabaseClient, getUser } from "@/lib/supabase/server";
 import { BlocksEditor } from "@/components/dashboard/blocks-editor";
 import { Button } from "@/components/ui/button";
+import { loadProjectCollection } from "@/lib/project-loaders";
 
 export const metadata = {
   title: "Page Blocks - Nodivra",
@@ -42,6 +43,8 @@ export default async function BlocksPage() {
     .order("position", { ascending: true })
     .limit(100);
 
+  const { projects } = await loadProjectCollection(supabase, profile.id);
+
   return (
     <div className="max-w-3xl space-y-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -62,6 +65,7 @@ export default async function BlocksPage() {
         profileId={profile.id}
         sections={sections ?? []}
         blocks={blocks ?? []}
+        projects={projects}
       />
     </div>
   );

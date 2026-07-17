@@ -22,3 +22,9 @@ export {
   validateBlockConfig,
   type BlockType,
 } from "./blocks";
+export {
+  projectFormSchema,
+  projectLinkInputSchema,
+  type ProjectFormData,
+  type ProjectLinkInputData,
+} from "./projects";

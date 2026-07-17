@@ -35,10 +35,10 @@ cp .env.example .env.local
 ```
 
 Required variables:
-- `NEXT_PUBLIC_SUPABASE_URL` — your Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — your anon/public key
-- `SUPABASE_SERVICE_ROLE_KEY` — service role key (server-side only, for seeding)
-- `NEXT_PUBLIC_APP_URL` — your app URL (http://localhost:3000 for dev)
+- `NEXT_PUBLIC_SUPABASE_URL` - your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - your anon/public key
+- `SUPABASE_SERVICE_ROLE_KEY` - service role key (server-side only, for seeding)
+- `NEXT_PUBLIC_APP_URL` - your app URL (http://localhost:3000 for dev)
 
 ### 3. Database migrations
 
@@ -57,6 +57,7 @@ supabase db push
 # 00006_create_page_sections.sql
 # 00007_create_page_blocks.sql
 # 00008_fix_audit_log_function.sql
+# 00009_create_projects.sql
 ```
 
 ### 4. Seed data (optional)
@@ -65,7 +66,7 @@ supabase db push
 npm run db:seed
 ```
 
-This creates a test user (`dev@nodivra.test` / `password123`) with a sample profile at `/u/jane-dev`, plus sectioned page content for the Blocks editor and public profile preview.
+This creates a test user (`dev@nodivra.test` / `password123`) with a sample profile at `/u/jane-dev`, plus sectioned page content, project case studies, and public profile preview data.
 
 ### 5. Run development server
 
@@ -114,7 +115,7 @@ scripts/
 | `npm run lint` | Run ESLint |
 | `npm run type-check` | TypeScript type checking |
 | `npm run test` | Run tests (Vitest) |
-| `npm run db:seed` | Seed database with test data |
+| `npm run db:seed` | Seed database with page, block, and project data |
 
 ## Features (Nodivra Page Module)
 
@@ -135,6 +136,12 @@ scripts/
 - Group content into ordered sections like About, Work, Writing, Contact, and Elsewhere
 - Add typed blocks for links, social links, project highlights, text, images, dividers, CTA cards, availability, and safe external resources
 - Collapse sections in the editor while keeping the public profile responsive and section-aware
+
+## Projects
+
+- Add developer case studies with summary, Markdown case study, role, technologies, project type, timeline, status, featured flag, and optional links
+- Publish selected projects at `/u/[handle]/projects` and detail pages at `/u/[handle]/projects/[slug]`
+- Manage project ordering, draft/published state, and public visibility from the dashboard
 
 ## Deployment (Vercel)
 

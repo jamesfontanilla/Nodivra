@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient, getUser } from "@/lib/supabase/server";
 import { PublicProfile } from "@/components/public/public-profile";
+import { loadProjectCollection } from "@/lib/project-loaders";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
@@ -58,6 +59,8 @@ export default async function PreviewPage() {
     .order("position", { ascending: true })
     .limit(50);
 
+  const { projects } = await loadProjectCollection(supabase, profile.id);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -81,6 +84,7 @@ export default async function PreviewPage() {
           links={(links ?? []) as ProfileLink[]}
           sections={(sections ?? []) as PageSection[]}
           blocks={(blocks ?? []) as PageBlock[]}
+          projects={projects}
         />
       </div>
     </div>

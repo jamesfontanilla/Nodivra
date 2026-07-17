@@ -2,6 +2,14 @@ import type { Database } from "@/lib/supabase/database.types";
 import type { BlockType } from "@/lib/validations/blocks";
 import { cn } from "@/lib/utils";
 import { groupPageBlocks, type PageSection } from "@/lib/page-builder";
+import {
+  PROJECT_LINK_KIND_LABELS,
+  PROJECT_STATUS_LABELS,
+  PROJECT_TYPE_LABELS,
+  formatProjectDateRange,
+  getProjectLink,
+  type ProjectDetail,
+} from "@/lib/projects";
 
 type PageBlock = Database["public"]["Tables"]["page_blocks"]["Row"];
 
@@ -17,11 +25,18 @@ const toList = (value: unknown): string[] =>
     : [];
 
 interface BlockRendererProps {
+  profileHandle?: string;
   sections?: PageSection[];
   blocks: PageBlock[];
+  projects?: ProjectDetail[];
 }
 
-export function BlockRenderer({ sections = [], blocks }: BlockRendererProps) {
+export function BlockRenderer({
+  profileHandle,
+  sections = [],
+  blocks,
+  projects = [],
+}: BlockRendererProps) {
   const visibleSections = sections.filter((section) => section.is_visible);
   const groupedBlocks = groupPageBlocks(visibleSections, blocks);
   const renderableGroups = groupedBlocks.filter((group) => group.blocks.length > 0);
@@ -61,7 +76,11 @@ export function BlockRenderer({ sections = [], blocks }: BlockRendererProps) {
                   animationFillMode: "forwards",
                 }}
               >
-                <RenderBlock block={block} />
+                <RenderBlock
+                  block={block}
+                  projects={projects}
+                  profileHandle={profileHandle}
+                />
               </div>
             ))}
           </div>
@@ -71,7 +90,15 @@ export function BlockRenderer({ sections = [], blocks }: BlockRendererProps) {
   );
 }
 
-function RenderBlock({ block }: { block: PageBlock }) {
+function RenderBlock({
+  block,
+  projects,
+  profileHandle,
+}: {
+  block: PageBlock;
+  projects: ProjectDetail[];
+  profileHandle?: string;
+}) {
   const config = (block.config ?? {}) as Record<string, unknown>;
   const type = block.block_type as BlockType;
 
@@ -81,7 +108,13 @@ function RenderBlock({ block }: { block: PageBlock }) {
     case "social_link":
       return <SocialLinkBlock config={config} />;
     case "project_highlight":
-      return <ProjectHighlightBlock config={config} />;
+      return (
+        <ProjectHighlightBlock
+          config={config}
+          projects={projects}
+          profileHandle={profileHandle}
+        />
+      );
     case "text_section":
       return <TextSectionBlock config={config} />;
     case "divider":
@@ -166,13 +199,123 @@ function SocialLinkBlock({ config }: { config: Record<string, unknown> }) {
   );
 }
 
-function ProjectHighlightBlock({ config }: { config: Record<string, unknown> }) {
+function ProjectHighlightBlock({
+  config,
+  projects,
+  profileHandle,
+}: {
+  config: Record<string, unknown>;
+  projects: ProjectDetail[];
+  profileHandle?: string;
+}) {
+  const projectId = toText(config.project_id);
   const name = toText(config.name);
   const description = toText(config.description);
   const url = toText(config.url);
   const repoUrl = toText(config.repo_url);
   const techs = toList(config.technologies);
   const status = toText(config.status);
+
+  if (hasText(projectId)) {
+    const projectDetail = projects.find((item) => item.project.id === projectId);
+    if (projectDetail) {
+      const liveLink = getProjectLink(projectDetail.links, "live");
+      const repositoryLink = getProjectLink(projectDetail.links, "repository");
+      const demoLink = getProjectLink(projectDetail.links, "demo");
+
+      return (
+        <div className="bezel-outer">
+          <div className="bezel-inner space-y-4 p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold">
+                  {projectDetail.project.title}
+                </h3>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {projectDetail.project.summary}
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                {projectDetail.project.is_featured && (
+                  <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                    Featured
+                  </span>
+                )}
+                <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground dark:bg-white/5">
+                  {PROJECT_STATUS_LABELS[projectDetail.project.status]}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                {PROJECT_TYPE_LABELS[projectDetail.project.project_type]}
+              </span>
+              <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground dark:bg-white/5">
+                {formatProjectDateRange(projectDetail.project)}
+              </span>
+            </div>
+
+            {projectDetail.technologies.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {projectDetail.technologies.map((technology) => (
+                  <span
+                    key={technology.id}
+                    className="rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground dark:bg-white/5"
+                  >
+                    {technology.name}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-3 pt-1">
+              {hasText(profileHandle) && (
+                <a
+                  href={`/u/${profileHandle}/projects/${projectDetail.project.slug}`}
+                  target="_self"
+                  rel="noreferrer"
+                  className="text-xs text-primary transition-colors duration-300 hover:underline"
+                >
+                  {"Read case study ->"}
+                </a>
+              )}
+              {liveLink && (
+                <a
+                  href={liveLink.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-muted-foreground transition-colors duration-300 hover:text-foreground hover:underline"
+                >
+                  {`${PROJECT_LINK_KIND_LABELS.live} ->`}
+                </a>
+              )}
+              {repositoryLink && (
+                <a
+                  href={repositoryLink.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-muted-foreground transition-colors duration-300 hover:text-foreground hover:underline"
+                >
+                  {`${PROJECT_LINK_KIND_LABELS.repository} ->`}
+                </a>
+              )}
+              {demoLink && (
+                <a
+                  href={demoLink.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-muted-foreground transition-colors duration-300 hover:text-foreground hover:underline"
+                >
+                  {`${PROJECT_LINK_KIND_LABELS.demo} ->`}
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
 
   if (!hasText(name)) return null;
 

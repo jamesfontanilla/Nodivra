@@ -7,6 +7,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
+import { toRoute } from "@/lib/routes";
 
 interface DashboardNavProps {
   userEmail: string;
@@ -16,6 +17,7 @@ const navLinks: Array<{ href: Route; label: string }> = [
   { href: "/dashboard", label: "Page" },
   { href: "/dashboard/links", label: "Links" },
   { href: "/dashboard/blocks", label: "Blocks" },
+  { href: toRoute("/dashboard/projects"), label: "Projects" },
   { href: "/dashboard/preview", label: "Preview" },
   { href: "/dashboard/settings", label: "Settings" },
 ];

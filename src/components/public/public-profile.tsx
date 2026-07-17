@@ -1,7 +1,9 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BlockRenderer } from "@/components/public/block-renderer";
+import { ProjectsSection } from "@/components/public/projects-section";
 import type { Database } from "@/lib/supabase/database.types";
 import type { PageSection } from "@/lib/page-builder";
+import type { ProjectDetail } from "@/lib/projects";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type ProfileLink = Database["public"]["Tables"]["profile_links"]["Row"];
@@ -12,6 +14,7 @@ interface PublicProfileProps {
   links: ProfileLink[];
   sections?: PageSection[];
   blocks?: PageBlock[];
+  projects?: ProjectDetail[];
 }
 
 export function PublicProfile({
@@ -19,6 +22,7 @@ export function PublicProfile({
   links,
   sections = [],
   blocks = [],
+  projects = [],
 }: PublicProfileProps) {
   return (
     <main className="relative min-h-[100dvh] flex items-center justify-center px-4 py-24 md:py-40 overflow-hidden">
@@ -143,9 +147,18 @@ export function PublicProfile({
           </div>
         )}
 
+        {projects.length > 0 && (
+          <ProjectsSection handle={profile.handle} projects={projects} />
+        )}
+
         {/* Blocks */}
         {blocks.length > 0 && (
-          <BlockRenderer sections={sections} blocks={blocks} />
+          <BlockRenderer
+            profileHandle={profile.handle}
+            sections={sections}
+            blocks={blocks}
+            projects={projects}
+          />
         )}
 
         {/* Footer */}

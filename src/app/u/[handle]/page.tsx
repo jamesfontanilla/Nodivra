@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { loadProjectCollection } from "@/lib/project-loaders";
 import { PublicProfile } from "@/components/public/public-profile";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -99,12 +100,18 @@ export default async function PublicProfilePage({ params }: PageProps) {
     .order("position", { ascending: true })
     .limit(50);
 
+  const { projects } = await loadProjectCollection(supabase, profile.id, {
+    publicOnly: true,
+    limit: 6,
+  });
+
   return (
     <PublicProfile
       profile={profile as Profile}
       links={(links ?? []) as ProfileLink[]}
       sections={(sections ?? []) as PageSection[]}
       blocks={(blocks ?? []) as PageBlock[]}
+      projects={projects}
     />
   );
 }
