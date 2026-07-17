@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import type { Route } from "next";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -11,7 +12,7 @@ interface DashboardNavProps {
   userEmail: string;
 }
 
-const navLinks = [
+const navLinks: Array<{ href: Route; label: string }> = [
   { href: "/dashboard", label: "Page" },
   { href: "/dashboard/links", label: "Links" },
   { href: "/dashboard/blocks", label: "Blocks" },
@@ -38,7 +39,7 @@ export function DashboardNav({ userEmail }: DashboardNavProps) {
         <nav className="glass-panel rounded-full px-3 py-2 flex items-center justify-between backdrop-blur-2xl">
           <div className="flex items-center gap-1">
             <Link
-              href="/dashboard"
+              href={"/dashboard" as Route}
               className="font-bold text-sm px-3 py-1.5 bg-gradient-to-r from-violet-600 to-cyan-500 dark:from-violet-400 dark:to-cyan-300 bg-clip-text text-transparent"
             >
               Nodivra

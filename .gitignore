@@ -31,7 +31,10 @@ yarn-error.log*
 .vercel
 
 # agents
-.agents
+.agents/
+
+# supabase local config
+/supabase/
 
 # typescript
 *.tsbuildinfo

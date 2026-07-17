@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PublicProfile } from "@/components/public/public-profile";
-import { BlockRenderer } from "@/components/public/block-renderer";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
