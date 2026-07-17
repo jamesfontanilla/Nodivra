@@ -173,6 +173,85 @@ export interface Database {
           created_at?: string;
         };
       };
+      page_sections: {
+        Row: {
+          id: string;
+          profile_id: string;
+          title: string;
+          slug: string;
+          position: number;
+          is_visible: boolean;
+          is_collapsed_in_editor: boolean;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          title: string;
+          slug: string;
+          position?: number;
+          is_visible?: boolean;
+          is_collapsed_in_editor?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          title?: string;
+          slug?: string;
+          position?: number;
+          is_visible?: boolean;
+          is_collapsed_in_editor?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+      };
+      page_blocks: {
+        Row: {
+          id: string;
+          profile_id: string;
+          section_id: string | null;
+          block_type: string;
+          title: string;
+          position: number;
+          is_visible: boolean;
+          config: Json;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          section_id?: string | null;
+          block_type: string;
+          title?: string;
+          position?: number;
+          is_visible?: boolean;
+          config?: Json;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          section_id?: string | null;
+          block_type?: string;
+          title?: string;
+          position?: number;
+          is_visible?: boolean;
+          config?: Json;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

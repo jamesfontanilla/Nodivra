@@ -160,6 +160,84 @@ async function seedProfile(userId: string) {
     console.log("✅ Created profile settings");
   }
 
+  // Create page blocks
+  const pageBlocks = [
+    {
+      profile_id: profile.id,
+      block_type: "text_section",
+      title: "About Me",
+      position: 0,
+      is_visible: true,
+      config: { body: "I'm a full-stack engineer passionate about building tools that make developers more productive. Currently focused on TypeScript, distributed systems, and developer experience.", format: "plain" },
+    },
+    {
+      profile_id: profile.id,
+      block_type: "project_highlight",
+      title: "DevTools CLI",
+      position: 1,
+      is_visible: true,
+      config: { name: "DevTools CLI", description: "A blazing-fast command-line toolkit for scaffolding full-stack projects", url: "https://example.com/devtools", technologies: ["Rust", "TypeScript", "Node.js"], status: "active" },
+    },
+    {
+      profile_id: profile.id,
+      block_type: "project_highlight",
+      title: "CloudSync",
+      position: 2,
+      is_visible: true,
+      config: { name: "CloudSync", description: "Real-time file synchronization across development environments", repo_url: "https://github.com/janedev/cloudsync", technologies: ["Go", "gRPC", "PostgreSQL"], status: "wip" },
+    },
+    {
+      profile_id: profile.id,
+      block_type: "availability_card",
+      title: "Availability",
+      position: 3,
+      is_visible: true,
+      config: { status: "available", message: "Open to freelance projects and consulting" },
+    },
+    {
+      profile_id: profile.id,
+      block_type: "cta_card",
+      title: "Hire Me",
+      position: 4,
+      is_visible: true,
+      config: { heading: "Let's build something great", body: "I'm available for freelance work and technical consulting.", button_label: "Get in touch", button_url: "https://example.com/contact" },
+    },
+    {
+      profile_id: profile.id,
+      block_type: "external_resource",
+      title: "Latest Article",
+      position: 5,
+      is_visible: true,
+      config: { url: "https://blog.example.com/scaling-typescript", title: "Scaling TypeScript in Large Codebases", description: "Lessons learned maintaining a 500k LOC TypeScript monorepo", source: "Personal Blog" },
+    },
+    {
+      profile_id: profile.id,
+      block_type: "divider",
+      title: "Divider",
+      position: 6,
+      is_visible: true,
+      config: { style: "dots" },
+    },
+    {
+      profile_id: profile.id,
+      block_type: "social_link",
+      title: "Mastodon",
+      position: 7,
+      is_visible: true,
+      config: { url: "https://mastodon.social/@janedev", platform: "Mastodon", username: "@janedev" },
+    },
+  ];
+
+  const { error: blocksError } = await supabase
+    .from("page_blocks")
+    .insert(pageBlocks);
+
+  if (blocksError) {
+    console.error("Error creating blocks:", blocksError.message);
+  } else {
+    console.log(`✅ Created ${pageBlocks.length} page blocks`);
+  }
+
   console.log("\n🎉 Seeding complete!");
   console.log("   Email: dev@nodivra.test");
   console.log("   Password: password123");

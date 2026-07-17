@@ -1,15 +1,18 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { BlockRenderer } from "@/components/public/block-renderer";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type ProfileLink = Database["public"]["Tables"]["profile_links"]["Row"];
+type PageBlock = Database["public"]["Tables"]["page_blocks"]["Row"];
 
 interface PublicProfileProps {
   profile: Profile;
   links: ProfileLink[];
+  blocks?: PageBlock[];
 }
 
-export function PublicProfile({ profile, links }: PublicProfileProps) {
+export function PublicProfile({ profile, links, blocks = [] }: PublicProfileProps) {
   return (
     <main className="relative min-h-[100dvh] flex items-center justify-center px-4 py-24 md:py-40 overflow-hidden">
       {/* Ambient orbs */}
@@ -131,6 +134,11 @@ export function PublicProfile({ profile, links }: PublicProfileProps) {
               </a>
             ))}
           </div>
+        )}
+
+        {/* Blocks */}
+        {blocks.length > 0 && (
+          <BlockRenderer blocks={blocks} />
         )}
 
         {/* Footer */}

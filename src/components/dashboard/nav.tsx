@@ -14,6 +14,7 @@ interface DashboardNavProps {
 const navLinks = [
   { href: "/dashboard", label: "Page" },
   { href: "/dashboard/links", label: "Links" },
+  { href: "/dashboard/blocks", label: "Blocks" },
   { href: "/dashboard/preview", label: "Preview" },
   { href: "/dashboard/settings", label: "Settings" },
 ];

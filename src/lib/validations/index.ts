@@ -13,3 +13,12 @@ export {
   type LinkFormData,
   type LinkUpdateData,
 } from "./link";
+export {
+  BLOCK_TYPES,
+  blockSchema,
+  sectionSchema,
+  sectionUpdateSchema,
+  blockConfigSchemas,
+  validateBlockConfig,
+  type BlockType,
+} from "./blocks";

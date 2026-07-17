@@ -2,10 +2,12 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PublicProfile } from "@/components/public/public-profile";
+import { BlockRenderer } from "@/components/public/block-renderer";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type ProfileLink = Database["public"]["Tables"]["profile_links"]["Row"];
+type PageBlock = Database["public"]["Tables"]["page_blocks"]["Row"];
 
 interface PageProps {
   params: { handle: string };
@@ -66,7 +68,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
 
   if (!profile) {
     notFound();
-    return; // TypeScript control flow
+    return;
   }
 
   const { data: links } = await supabase
@@ -79,10 +81,20 @@ export default async function PublicProfilePage({ params }: PageProps) {
     .order("position", { ascending: true })
     .limit(50);
 
+  const { data: blocks } = await supabase
+    .from("page_blocks")
+    .select("*")
+    .eq("profile_id", profile.id)
+    .eq("is_visible", true)
+    .is("deleted_at", null)
+    .order("position", { ascending: true })
+    .limit(50);
+
   return (
     <PublicProfile
       profile={profile as Profile}
       links={(links ?? []) as ProfileLink[]}
+      blocks={(blocks ?? []) as PageBlock[]}
     />
   );
 }
