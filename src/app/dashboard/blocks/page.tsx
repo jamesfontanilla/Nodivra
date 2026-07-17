@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createServerSupabaseClient, getUser } from "@/lib/supabase/server";
 import { BlocksEditor } from "@/components/dashboard/blocks-editor";
+import { Button } from "@/components/ui/button";
 
 export const metadata = {
   title: "Page Blocks - Nodivra",
@@ -42,14 +44,19 @@ export default async function BlocksPage() {
 
   return (
     <div className="max-w-3xl space-y-10">
-      <div className="space-y-2">
-        <span className="inline-block rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-medium bg-primary/10 text-primary">
-          Page Builder
-        </span>
-        <h1 className="text-3xl font-bold tracking-tight">Blocks</h1>
-        <p className="text-sm text-muted-foreground">
-          Build your page with flexible content blocks
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-2">
+          <span className="inline-block rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-medium bg-primary/10 text-primary">
+            Page Builder
+          </span>
+          <h1 className="text-3xl font-bold tracking-tight">Blocks</h1>
+          <p className="text-sm text-muted-foreground">
+            Build your page with flexible content blocks
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm" className="rounded-full">
+          <Link href="/dashboard/preview">Preview page</Link>
+        </Button>
       </div>
       <BlocksEditor
         profileId={profile.id}

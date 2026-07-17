@@ -1,6 +1,7 @@
 import type { Database } from "@/lib/supabase/database.types";
 import type { BlockType } from "@/lib/validations/blocks";
 import { cn } from "@/lib/utils";
+import { groupPageBlocks, type PageSection } from "@/lib/page-builder";
 
 type PageBlock = Database["public"]["Tables"]["page_blocks"]["Row"];
 
@@ -16,25 +17,55 @@ const toList = (value: unknown): string[] =>
     : [];
 
 interface BlockRendererProps {
+  sections?: PageSection[];
   blocks: PageBlock[];
 }
 
-export function BlockRenderer({ blocks }: BlockRendererProps) {
-  if (blocks.length === 0) return null;
+export function BlockRenderer({ sections = [], blocks }: BlockRendererProps) {
+  const visibleSections = sections.filter((section) => section.is_visible);
+  const groupedBlocks = groupPageBlocks(visibleSections, blocks);
+  const renderableGroups = groupedBlocks.filter((group) => group.blocks.length > 0);
+
+  if (renderableGroups.length === 0) return null;
 
   return (
-    <div className="space-y-4">
-      {blocks.map((block, index) => (
-        <div
-          key={block.id}
-          className="animate-fade-up opacity-0"
-          style={{
-            animationDelay: `${(index + 1) * 80}ms`,
-            animationFillMode: "forwards",
-          }}
-        >
-          <RenderBlock block={block} />
-        </div>
+    <div className="space-y-8">
+      {renderableGroups.map((group, groupIndex) => (
+        <section key={group.key} className="space-y-4">
+          {group.section && (
+            <div className="space-y-3">
+              <div className="flex items-end justify-between gap-3">
+                <div className="space-y-2">
+                  <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-primary dark:bg-primary/15">
+                    {group.section.slug}
+                  </span>
+                  <h2 className="text-sm font-semibold tracking-tight md:text-base">
+                    {group.section.title}
+                  </h2>
+                </div>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  {group.blocks.length} block{group.blocks.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              <div className="h-px w-full bg-foreground/5 dark:bg-white/5" />
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {group.blocks.map((block, index) => (
+              <div
+                key={block.id}
+                className="animate-fade-up opacity-0"
+                style={{
+                  animationDelay: `${(groupIndex * 80) + ((index + 1) * 60)}ms`,
+                  animationFillMode: "forwards",
+                }}
+              >
+                <RenderBlock block={block} />
+              </div>
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   );

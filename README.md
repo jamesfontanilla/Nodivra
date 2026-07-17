@@ -53,6 +53,10 @@ supabase db push
 # 00002_create_profile_links.sql
 # 00003_create_public_profile_settings.sql
 # 00004_create_audit_logs.sql
+# 00005_reserved_handles_and_triggers.sql
+# 00006_create_page_sections.sql
+# 00007_create_page_blocks.sql
+# 00008_fix_audit_log_function.sql
 ```
 
 ### 4. Seed data (optional)
@@ -61,7 +65,7 @@ supabase db push
 npm run db:seed
 ```
 
-This creates a test user (`dev@nodivra.test` / `password123`) with a sample profile at `/u/jane-dev`.
+This creates a test user (`dev@nodivra.test` / `password123`) with a sample profile at `/u/jane-dev`, plus sectioned page content for the Blocks editor and public profile preview.
 
 ### 5. Run development server
 
@@ -125,6 +129,12 @@ scripts/
 - **Audit logging** — Automatic audit trail for profile and link changes
 - **Reserved handles** — System paths blocked from registration
 - **URL validation** — Only http/https URLs allowed
+
+## Blocks
+
+- Group content into ordered sections like About, Work, Writing, Contact, and Elsewhere
+- Add typed blocks for links, social links, project highlights, text, images, dividers, CTA cards, availability, and safe external resources
+- Collapse sections in the editor while keeping the public profile responsive and section-aware
 
 ## Deployment (Vercel)
 

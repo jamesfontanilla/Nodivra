@@ -6,6 +6,7 @@ import type { Database } from "@/lib/supabase/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type ProfileLink = Database["public"]["Tables"]["profile_links"]["Row"];
+type PageSection = Database["public"]["Tables"]["page_sections"]["Row"];
 type PageBlock = Database["public"]["Tables"]["page_blocks"]["Row"];
 
 interface PageProps {
@@ -80,6 +81,15 @@ export default async function PublicProfilePage({ params }: PageProps) {
     .order("position", { ascending: true })
     .limit(50);
 
+  const { data: sections } = await supabase
+    .from("page_sections")
+    .select("*")
+    .eq("profile_id", profile.id)
+    .eq("is_visible", true)
+    .is("deleted_at", null)
+    .order("position", { ascending: true })
+    .limit(20);
+
   const { data: blocks } = await supabase
     .from("page_blocks")
     .select("*")
@@ -93,6 +103,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
     <PublicProfile
       profile={profile as Profile}
       links={(links ?? []) as ProfileLink[]}
+      sections={(sections ?? []) as PageSection[]}
       blocks={(blocks ?? []) as PageBlock[]}
     />
   );

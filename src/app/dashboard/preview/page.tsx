@@ -5,6 +5,8 @@ import type { Database } from "@/lib/supabase/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type ProfileLink = Database["public"]["Tables"]["profile_links"]["Row"];
+type PageSection = Database["public"]["Tables"]["page_sections"]["Row"];
+type PageBlock = Database["public"]["Tables"]["page_blocks"]["Row"];
 
 export const metadata = {
   title: "Preview - Nodivra",
@@ -38,6 +40,24 @@ export default async function PreviewPage() {
     .order("position", { ascending: true })
     .limit(50);
 
+  const { data: sections } = await supabase
+    .from("page_sections")
+    .select("*")
+    .eq("profile_id", profile.id)
+    .eq("is_visible", true)
+    .is("deleted_at", null)
+    .order("position", { ascending: true })
+    .limit(20);
+
+  const { data: blocks } = await supabase
+    .from("page_blocks")
+    .select("*")
+    .eq("profile_id", profile.id)
+    .eq("is_visible", true)
+    .is("deleted_at", null)
+    .order("position", { ascending: true })
+    .limit(50);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -59,6 +79,8 @@ export default async function PreviewPage() {
         <PublicProfile
           profile={profile as Profile}
           links={(links ?? []) as ProfileLink[]}
+          sections={(sections ?? []) as PageSection[]}
+          blocks={(blocks ?? []) as PageBlock[]}
         />
       </div>
     </div>

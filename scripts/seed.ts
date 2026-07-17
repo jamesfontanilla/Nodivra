@@ -160,71 +160,216 @@ async function seedProfile(userId: string) {
     console.log("✅ Created profile settings");
   }
 
+  // Create page sections
+  const pageSections = [
+    {
+      profile_id: profile.id,
+      title: "About",
+      slug: "about",
+      position: 0,
+      is_visible: true,
+      is_collapsed_in_editor: false,
+    },
+    {
+      profile_id: profile.id,
+      title: "Work",
+      slug: "work",
+      position: 1,
+      is_visible: true,
+      is_collapsed_in_editor: false,
+    },
+    {
+      profile_id: profile.id,
+      title: "Writing",
+      slug: "writing",
+      position: 2,
+      is_visible: true,
+      is_collapsed_in_editor: false,
+    },
+    {
+      profile_id: profile.id,
+      title: "Contact",
+      slug: "contact",
+      position: 3,
+      is_visible: true,
+      is_collapsed_in_editor: false,
+    },
+    {
+      profile_id: profile.id,
+      title: "Elsewhere",
+      slug: "elsewhere",
+      position: 4,
+      is_visible: true,
+      is_collapsed_in_editor: true,
+    },
+  ];
+
+  const { data: seededSections, error: sectionsError } = await supabase
+    .from("page_sections")
+    .insert(pageSections)
+    .select();
+
+  if (sectionsError) {
+    console.error("Error creating sections:", sectionsError.message);
+    process.exit(1);
+  }
+
+  console.log(`✅ Created ${pageSections.length} page sections`);
+
+  const sectionIds = {
+    about: seededSections?.find((section) => section.slug === "about")?.id ?? "",
+    work: seededSections?.find((section) => section.slug === "work")?.id ?? "",
+    writing: seededSections?.find((section) => section.slug === "writing")?.id ?? "",
+    contact: seededSections?.find((section) => section.slug === "contact")?.id ?? "",
+    elsewhere: seededSections?.find((section) => section.slug === "elsewhere")?.id ?? "",
+  };
+
+  if (
+    !sectionIds.about ||
+    !sectionIds.work ||
+    !sectionIds.writing ||
+    !sectionIds.contact ||
+    !sectionIds.elsewhere
+  ) {
+    console.error("Missing seeded section IDs");
+    process.exit(1);
+  }
+
   // Create page blocks
   const pageBlocks = [
     {
       profile_id: profile.id,
+      section_id: sectionIds.about,
       block_type: "text_section",
       title: "About Me",
       position: 0,
       is_visible: true,
-      config: { body: "I'm a full-stack engineer passionate about building tools that make developers more productive. Currently focused on TypeScript, distributed systems, and developer experience.", format: "plain" },
+      config: {
+        body: "I'm a full-stack engineer passionate about building tools that make developers more productive. Currently focused on TypeScript, distributed systems, and developer experience.",
+        format: "plain",
+      },
     },
     {
       profile_id: profile.id,
-      block_type: "project_highlight",
-      title: "DevTools CLI",
+      section_id: sectionIds.about,
+      block_type: "image_card",
+      title: "Studio Photo",
       position: 1,
       is_visible: true,
-      config: { name: "DevTools CLI", description: "A blazing-fast command-line toolkit for scaffolding full-stack projects", url: "https://example.com/devtools", technologies: ["Rust", "TypeScript", "Node.js"], status: "active" },
+      config: {
+        src: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
+        alt: "A clean developer workspace",
+        caption: "A quiet desk for product work.",
+        aspect_ratio: "16:9",
+      },
     },
     {
       profile_id: profile.id,
+      section_id: sectionIds.work,
       block_type: "project_highlight",
-      title: "CloudSync",
-      position: 2,
+      title: "DevTools CLI",
+      position: 0,
       is_visible: true,
-      config: { name: "CloudSync", description: "Real-time file synchronization across development environments", repo_url: "https://github.com/janedev/cloudsync", technologies: ["Go", "gRPC", "PostgreSQL"], status: "wip" },
+      config: {
+        name: "DevTools CLI",
+        description:
+          "A blazing-fast command-line toolkit for scaffolding full-stack projects",
+        url: "https://example.com/devtools",
+        technologies: ["Rust", "TypeScript", "Node.js"],
+        status: "active",
+      },
     },
     {
       profile_id: profile.id,
-      block_type: "availability_card",
-      title: "Availability",
-      position: 3,
+      section_id: sectionIds.work,
+      block_type: "external_resource",
+      title: "Case Study",
+      position: 1,
       is_visible: true,
-      config: { status: "available", message: "Open to freelance projects and consulting" },
+      config: {
+        url: "https://example.com/devtools-case-study",
+        title: "Designing a DX-first CLI",
+        description:
+          "Notes on fast scaffolding, predictable defaults, and careful ergonomics.",
+        source: "Engineering Notes",
+      },
     },
     {
       profile_id: profile.id,
-      block_type: "cta_card",
-      title: "Hire Me",
-      position: 4,
-      is_visible: true,
-      config: { heading: "Let's build something great", body: "I'm available for freelance work and technical consulting.", button_label: "Get in touch", button_url: "https://example.com/contact" },
-    },
-    {
-      profile_id: profile.id,
+      section_id: sectionIds.writing,
       block_type: "external_resource",
       title: "Latest Article",
-      position: 5,
+      position: 0,
       is_visible: true,
-      config: { url: "https://blog.example.com/scaling-typescript", title: "Scaling TypeScript in Large Codebases", description: "Lessons learned maintaining a 500k LOC TypeScript monorepo", source: "Personal Blog" },
+      config: {
+        url: "https://blog.example.com/scaling-typescript",
+        title: "Scaling TypeScript in Large Codebases",
+        description:
+          "Lessons learned maintaining a 500k LOC TypeScript monorepo",
+        source: "Personal Blog",
+      },
     },
     {
       profile_id: profile.id,
-      block_type: "divider",
-      title: "Divider",
-      position: 6,
+      section_id: sectionIds.contact,
+      block_type: "availability_card",
+      title: "Availability",
+      position: 0,
       is_visible: true,
-      config: { style: "dots" },
+      config: {
+        status: "available",
+        message: "Open to freelance projects and consulting",
+      },
     },
     {
       profile_id: profile.id,
+      section_id: sectionIds.contact,
+      block_type: "cta_card",
+      title: "Hire Me",
+      position: 1,
+      is_visible: true,
+      config: {
+        heading: "Let's build something great",
+        body: "I'm available for freelance work and technical consulting.",
+        button_label: "Get in touch",
+        button_url: "https://example.com/contact",
+      },
+    },
+    {
+      profile_id: profile.id,
+      section_id: sectionIds.elsewhere,
       block_type: "social_link",
       title: "Mastodon",
-      position: 7,
+      position: 0,
       is_visible: true,
-      config: { url: "https://mastodon.social/@janedev", platform: "Mastodon", username: "@janedev" },
+      config: {
+        url: "https://mastodon.social/@janedev",
+        platform: "Mastodon",
+        username: "@janedev",
+      },
+    },
+    {
+      profile_id: profile.id,
+      section_id: sectionIds.elsewhere,
+      block_type: "link_button",
+      title: "GitHub",
+      position: 1,
+      is_visible: true,
+      config: {
+        url: "https://github.com/janedev",
+        label: "GitHub",
+        icon: "↗",
+        style: "outline",
+      },
+    },
+    {
+      profile_id: profile.id,
+      section_id: null,
+      block_type: "divider",
+      title: "Divider",
+      position: 0,
+      is_visible: true,
+      config: { style: "dots" },
     },
   ];
 
