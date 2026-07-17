@@ -2,7 +2,6 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink, MapPin, Clock } from "lucide-react";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -18,15 +17,18 @@ export function ProfilePreview({ profile, links }: ProfilePreviewProps) {
   const visibleLinks = links.filter((l) => l.is_visible && l.is_enabled);
 
   return (
-    <Card className="max-w-sm mx-auto overflow-hidden">
-      <CardContent className="p-6 space-y-6">
+    <div className="glass-strong rounded-2xl max-w-sm mx-auto overflow-hidden">
+      <div className="p-6 space-y-5">
         {/* Identity */}
         <div className="flex flex-col items-center text-center space-y-3">
-          <Avatar className="h-20 w-20">
+          <Avatar className="h-20 w-20 ring-2 ring-white/20 shadow-md">
             {profile.avatar_url && (
-              <AvatarImage src={profile.avatar_url} alt={profile.display_name} />
+              <AvatarImage
+                src={profile.avatar_url}
+                alt={profile.display_name}
+              />
             )}
-            <AvatarFallback className="text-lg">
+            <AvatarFallback className="text-lg font-semibold bg-gradient-to-br from-purple-500 to-blue-500 text-white">
               {profile.avatar_initials ||
                 profile.display_name
                   .split(" ")
@@ -68,8 +70,8 @@ export function ProfilePreview({ profile, links }: ProfilePreviewProps) {
             </span>
           )}
           {profile.is_available && (
-            <span className="flex items-center gap-1 text-green-600">
-              <span className="h-2 w-2 rounded-full bg-green-500" />
+            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
               Available
             </span>
           )}
@@ -77,7 +79,7 @@ export function ProfilePreview({ profile, links }: ProfilePreviewProps) {
 
         {/* CTA */}
         {profile.primary_cta_label && profile.primary_cta_url && (
-          <Button asChild className="w-full">
+          <Button asChild className="w-full rounded-full" size="sm">
             <a
               href={profile.primary_cta_url}
               target="_blank"
@@ -97,7 +99,7 @@ export function ProfilePreview({ profile, links }: ProfilePreviewProps) {
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between w-full rounded-lg border p-3 text-sm hover:bg-accent transition-colors"
+                className="flex items-center justify-between w-full rounded-lg border border-white/15 dark:border-white/5 p-3 text-sm hover:bg-white/20 dark:hover:bg-white/5 transition-all"
               >
                 <span className="flex items-center gap-2">
                   {link.icon_label && (
@@ -107,7 +109,7 @@ export function ProfilePreview({ profile, links }: ProfilePreviewProps) {
                   )}
                   <span className="font-medium">{link.title}</span>
                 </span>
-                <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
               </a>
             ))}
           </div>
@@ -118,7 +120,7 @@ export function ProfilePreview({ profile, links }: ProfilePreviewProps) {
             No links added yet
           </p>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

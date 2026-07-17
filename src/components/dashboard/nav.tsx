@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,22 +33,25 @@ export function DashboardNav({ userEmail }: DashboardNavProps) {
   }
 
   return (
-    <header className="border-b">
+    <header className="sticky top-0 z-50 glass-strong border-b border-white/10 dark:border-white/5">
       <div className="container flex h-14 items-center justify-between">
         <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="font-bold text-lg">
+          <Link
+            href="/dashboard"
+            className="font-bold text-lg bg-gradient-to-r from-purple-600 to-blue-500 dark:from-purple-400 dark:to-blue-300 bg-clip-text text-transparent"
+          >
             Nodivra
           </Link>
-          <nav className="hidden sm:flex items-center gap-4 text-sm">
+          <nav className="hidden sm:flex items-center gap-1 text-sm">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "hover:text-foreground transition-colors",
+                  "px-3 py-1.5 rounded-full transition-all",
                   pathname === link.href
-                    ? "text-foreground font-medium"
-                    : "text-muted-foreground"
+                    ? "glass text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground hover:bg-white/10"
                 )}
               >
                 {link.label}
@@ -55,44 +59,61 @@ export function DashboardNav({ userEmail }: DashboardNavProps) {
             ))}
           </nav>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground hidden sm:block">
             {userEmail}
           </span>
-          <Button variant="ghost" size="sm" onClick={handleSignOut} className="hidden sm:inline-flex">
+          <ThemeToggle />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSignOut}
+            className="hidden sm:inline-flex rounded-full"
+          >
             Sign out
           </Button>
           <button
-            className="sm:hidden p-2"
+            className="sm:hidden p-2 rounded-full hover:bg-white/10"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle navigation"
           >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {mobileOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
           </button>
         </div>
       </div>
 
       {/* Mobile nav */}
       {mobileOpen && (
-        <div className="sm:hidden border-t px-4 py-3 space-y-2">
+        <div className="sm:hidden glass-strong border-t border-white/10 px-4 py-3 space-y-1">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               onClick={() => setMobileOpen(false)}
               className={cn(
-                "block py-2 text-sm",
+                "block py-2 px-3 rounded-lg text-sm transition-colors",
                 pathname === link.href
-                  ? "text-foreground font-medium"
-                  : "text-muted-foreground"
+                  ? "glass text-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               {link.label}
             </Link>
           ))}
-          <div className="pt-2 border-t">
-            <p className="text-xs text-muted-foreground mb-2">{userEmail}</p>
-            <Button variant="ghost" size="sm" onClick={handleSignOut} className="w-full justify-start">
+          <div className="pt-2 border-t border-white/10 mt-2">
+            <p className="text-xs text-muted-foreground mb-2 px-3">
+              {userEmail}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSignOut}
+              className="w-full justify-start rounded-lg"
+            >
               Sign out
             </Button>
           </div>

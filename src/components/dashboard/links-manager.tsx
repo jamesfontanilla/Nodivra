@@ -16,6 +16,8 @@ import {
   Plus,
   ChevronUp,
   ChevronDown,
+  Pencil,
+  X,
 } from "lucide-react";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -30,6 +32,8 @@ export function LinksManager({ profileId, links }: LinksManagerProps) {
   const router = useRouter();
   const [showAddForm, setShowAddForm] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   async function handleAdd(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -80,6 +84,55 @@ export function LinksManager({ profileId, links }: LinksManagerProps) {
     setAdding(false);
   }
 
+  async function handleEdit(e: React.FormEvent<HTMLFormElement>, linkId: string) {
+    e.preventDefault();
+    setSaving(true);
+
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      title: (formData.get("edit_title") as string).trim(),
+      url: (formData.get("edit_url") as string).trim(),
+      icon_label: (formData.get("edit_icon_label") as string).trim() || null,
+      is_visible: true,
+      is_enabled: true,
+    };
+
+    const result = linkSchema.safeParse(data);
+    if (!result.success) {
+      toast({
+        title: "Validation error",
+        description: result.error.errors[0]?.message,
+        variant: "destructive",
+      });
+      setSaving(false);
+      return;
+    }
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("profile_links")
+      .update({
+        title: data.title,
+        url: data.url,
+        icon_label: data.icon_label,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", linkId);
+
+    if (error) {
+      toast({
+        title: "Error saving link",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: "Link updated" });
+      setEditingId(null);
+      router.refresh();
+    }
+    setSaving(false);
+  }
+
   async function handleDelete(linkId: string) {
     const supabase = createClient();
     const { error } = await supabase
@@ -95,6 +148,7 @@ export function LinksManager({ profileId, links }: LinksManagerProps) {
       });
     } else {
       toast({ title: "Link deleted" });
+      setEditingId(null);
       router.refresh();
     }
   }
@@ -189,62 +243,150 @@ export function LinksManager({ profileId, links }: LinksManagerProps) {
       {links.map((link, index) => (
         <Card key={link.id}>
           <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col gap-1">
-                <button
-                  onClick={() => handleMoveUp(index)}
-                  disabled={index === 0}
-                  className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  aria-label="Move up"
-                >
-                  <ChevronUp className="h-4 w-4" />
-                </button>
-                <GripVertical className="h-4 w-4 text-muted-foreground" />
-                <button
-                  onClick={() => handleMoveDown(index)}
-                  disabled={index === links.length - 1}
-                  className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  aria-label="Move down"
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{link.title}</p>
-                <p className="text-sm text-muted-foreground truncate">
-                  {link.url}
-                </p>
-              </div>
+            {editingId === link.id ? (
+              /* Inline edit form */
+              <form
+                onSubmit={(e) => handleEdit(e, link.id)}
+                className="space-y-3"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Edit Link</span>
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(null)}
+                    className="p-1 text-muted-foreground hover:text-foreground"
+                    aria-label="Cancel editing"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`edit_title_${link.id}`}>Title *</Label>
+                  <Input
+                    id={`edit_title_${link.id}`}
+                    name="edit_title"
+                    defaultValue={link.title}
+                    maxLength={100}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`edit_url_${link.id}`}>URL *</Label>
+                  <Input
+                    id={`edit_url_${link.id}`}
+                    name="edit_url"
+                    defaultValue={link.url}
+                    type="url"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`edit_icon_label_${link.id}`}>
+                    Icon Label
+                  </Label>
+                  <Input
+                    id={`edit_icon_label_${link.id}`}
+                    name="edit_icon_label"
+                    defaultValue={link.icon_label ?? ""}
+                    placeholder="🌐"
+                    maxLength={30}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button type="submit" size="sm" disabled={saving}>
+                    {saving ? "Saving..." : "Save"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingId(null)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              /* Display mode */
               <div className="flex items-center gap-3">
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-xs text-muted-foreground">Visible</span>
-                  <Switch
-                    checked={link.is_visible}
-                    onCheckedChange={() =>
-                      handleToggleVisibility(link.id, link.is_visible)
-                    }
-                    aria-label="Toggle visibility"
-                  />
+                <div className="flex flex-col gap-1">
+                  <button
+                    onClick={() => handleMoveUp(index)}
+                    disabled={index === 0}
+                    className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    aria-label="Move up"
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </button>
+                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                  <button
+                    onClick={() => handleMoveDown(index)}
+                    disabled={index === links.length - 1}
+                    className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    aria-label="Move down"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
                 </div>
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-xs text-muted-foreground">Enabled</span>
-                  <Switch
-                    checked={link.is_enabled}
-                    onCheckedChange={() =>
-                      handleToggleEnabled(link.id, link.is_enabled)
+                <div
+                  className="flex-1 min-w-0 cursor-pointer"
+                  onClick={() => setEditingId(link.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      setEditingId(link.id);
                     }
-                    aria-label="Toggle enabled"
-                  />
-                </div>
-                <button
-                  onClick={() => handleDelete(link.id)}
-                  className="p-2 text-muted-foreground hover:text-destructive transition-colors"
-                  aria-label="Delete link"
+                  }}
+                  aria-label={`Edit ${link.title}`}
                 >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                  <p className="font-medium truncate">{link.title}</p>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {link.url}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <button
+                    onClick={() => setEditingId(link.id)}
+                    className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Edit link"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <div className="hidden sm:flex flex-col items-center gap-1">
+                    <span className="text-xs text-muted-foreground">
+                      Visible
+                    </span>
+                    <Switch
+                      checked={link.is_visible}
+                      onCheckedChange={() =>
+                        handleToggleVisibility(link.id, link.is_visible)
+                      }
+                      aria-label="Toggle visibility"
+                    />
+                  </div>
+                  <div className="hidden sm:flex flex-col items-center gap-1">
+                    <span className="text-xs text-muted-foreground">
+                      Enabled
+                    </span>
+                    <Switch
+                      checked={link.is_enabled}
+                      onCheckedChange={() =>
+                        handleToggleEnabled(link.id, link.is_enabled)
+                      }
+                      aria-label="Toggle enabled"
+                    />
+                  </div>
+                  <button
+                    onClick={() => handleDelete(link.id)}
+                    className="p-2 text-muted-foreground hover:text-destructive transition-colors"
+                    aria-label="Delete link"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       ))}
