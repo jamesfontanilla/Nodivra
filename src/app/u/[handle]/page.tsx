@@ -66,6 +66,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
 
   if (!profile) {
     notFound();
+    return; // TypeScript control flow
   }
 
   const { data: links } = await supabase

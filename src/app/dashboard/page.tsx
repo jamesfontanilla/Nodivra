@@ -26,6 +26,7 @@ export default async function DashboardPage() {
 
   if (!profile) {
     redirect("/dashboard/onboarding");
+    return; // TypeScript control flow
   }
 
   const { data: links } = await supabase

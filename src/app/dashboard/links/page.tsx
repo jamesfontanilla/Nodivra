@@ -24,12 +24,15 @@ export default async function LinksPage() {
 
   if (!profile) {
     redirect("/dashboard/onboarding");
+    return; // TypeScript control flow
   }
+
+  const profileId = profile.id;
 
   const { data: links } = await supabase
     .from("profile_links")
     .select("*")
-    .eq("profile_id", profile.id)
+    .eq("profile_id", profileId)
     .is("deleted_at", null)
     .order("position", { ascending: true })
     .limit(50);
@@ -43,7 +46,7 @@ export default async function LinksPage() {
         </p>
       </div>
       <LinksManager
-        profileId={profile.id}
+        profileId={profileId}
         links={(links ?? []) as ProfileLink[]}
       />
     </div>
