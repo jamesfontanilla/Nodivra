@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
@@ -15,7 +15,7 @@ export async function updateSession(request: NextRequest) {
           getAll() {
             return request.cookies.getAll();
           },
-          setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+          setAll(cookiesToSet: Array<{ name: string; value: string; options: Record<string, unknown> }>) {
             cookiesToSet.forEach(({ name, value }) =>
               request.cookies.set(name, value)
             );
@@ -23,7 +23,7 @@ export async function updateSession(request: NextRequest) {
               request,
             });
             cookiesToSet.forEach(({ name, value, options }) =>
-              supabaseResponse.cookies.set(name, value, options)
+              supabaseResponse.cookies.set(name, value, options as any)
             );
           },
         },
@@ -56,8 +56,8 @@ export async function updateSession(request: NextRequest) {
     }
 
     return supabaseResponse;
-  } catch {
-    // If middleware fails (e.g., invalid credentials), allow the request through
-    return NextResponse.next({ request });
+  } catch (e) {
+    console.error("Middleware error:", e);
+    return NextResponse.next();
   }
 }
