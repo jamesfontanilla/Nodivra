@@ -1,7 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-
 export default function Error({
   error,
   reset,
@@ -10,16 +8,29 @@ export default function Error({
   reset: () => void;
 }) {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-4 text-center relative overflow-hidden">
-      <div className="absolute bottom-[-20%] right-[20%] w-[400px] h-[400px] rounded-full bg-red-400/10 dark:bg-red-600/5 blur-3xl" />
-      <div className="relative z-10 glass-strong rounded-2xl p-10 space-y-4">
-        <h1 className="text-2xl font-bold">Something went wrong</h1>
-        <p className="text-muted-foreground">
-          {error.message || "An unexpected error occurred."}
-        </p>
-        <Button onClick={reset} className="rounded-full">
-          Try again
-        </Button>
+    <main className="relative min-h-[100dvh] flex flex-col items-center justify-center px-4 py-24 overflow-hidden">
+      <div className="absolute bottom-[-20%] right-[10%] w-[400px] h-[400px] rounded-full bg-red-400/6 dark:bg-red-500/8 blur-[100px]" />
+
+      <div className="relative z-10 animate-fade-up">
+        <div className="bezel-outer">
+          <div className="bezel-inner p-10 md:p-14 text-center space-y-6">
+            <span className="inline-block rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-medium bg-destructive/10 text-destructive">
+              Error
+            </span>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Something went wrong
+            </h1>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+              {error.message || "An unexpected error occurred."}
+            </p>
+            <button
+              onClick={reset}
+              className="group inline-flex items-center gap-3 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:shadow-[0_8px_30px_-4px_rgba(124,58,237,0.3)] active:scale-[0.98]"
+            >
+              <span>Try again</span>
+            </button>
+          </div>
+        </div>
       </div>
     </main>
   );

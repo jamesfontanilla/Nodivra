@@ -4,9 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DashboardNavProps {
@@ -33,92 +31,111 @@ export function DashboardNav({ userEmail }: DashboardNavProps) {
   }
 
   return (
-    <header className="sticky top-0 z-50 glass-strong border-b border-white/10 dark:border-white/5">
-      <div className="container flex h-14 items-center justify-between">
-        <div className="flex items-center gap-6">
-          <Link
-            href="/dashboard"
-            className="font-bold text-lg bg-gradient-to-r from-purple-600 to-blue-500 dark:from-purple-400 dark:to-blue-300 bg-clip-text text-transparent"
-          >
-            Nodivra
-          </Link>
-          <nav className="hidden sm:flex items-center gap-1 text-sm">
-            {navLinks.map((link) => (
+    <>
+      {/* Floating pill nav — detached from top */}
+      <header className="fixed top-6 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-3xl">
+        <nav className="glass-panel rounded-full px-3 py-2 flex items-center justify-between backdrop-blur-2xl">
+          <div className="flex items-center gap-1">
+            <Link
+              href="/dashboard"
+              className="font-bold text-sm px-3 py-1.5 bg-gradient-to-r from-violet-600 to-cyan-500 dark:from-violet-400 dark:to-cyan-300 bg-clip-text text-transparent"
+            >
+              Nodivra
+            </Link>
+
+            {/* Desktop links */}
+            <div className="hidden md:flex items-center gap-0.5">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                    pathname === link.href
+                      ? "bg-foreground/8 dark:bg-white/10 text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-foreground/5 dark:hover:bg-white/5"
+                  )}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="hidden lg:block text-[11px] text-muted-foreground truncate max-w-[140px]">
+              {userEmail}
+            </span>
+            <ThemeToggle />
+            <button
+              onClick={handleSignOut}
+              className="hidden md:block text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-full transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-foreground/5 dark:hover:bg-white/5"
+            >
+              Sign out
+            </button>
+
+            {/* Hamburger — morphing lines */}
+            <button
+              className="md:hidden relative w-8 h-8 flex items-center justify-center rounded-full hover:bg-foreground/5 dark:hover:bg-white/5 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              aria-label="Toggle navigation"
+            >
+              <span
+                className={cn(
+                  "absolute w-4 h-[1.5px] bg-foreground rounded-full transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                  mobileOpen ? "rotate-45 translate-y-0" : "-translate-y-1"
+                )}
+              />
+              <span
+                className={cn(
+                  "absolute w-4 h-[1.5px] bg-foreground rounded-full transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                  mobileOpen ? "-rotate-45 translate-y-0" : "translate-y-1"
+                )}
+              />
+            </button>
+          </div>
+        </nav>
+      </header>
+
+      {/* Mobile full-screen overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-30 md:hidden backdrop-blur-3xl bg-background/90 dark:bg-background/95 flex flex-col items-center justify-center">
+          <nav className="space-y-2 text-center">
+            {navLinks.map((link, i) => (
               <Link
                 key={link.href}
                 href={link.href}
+                onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "px-3 py-1.5 rounded-full transition-all",
+                  "block text-2xl font-medium py-3 animate-fade-up opacity-0",
                   pathname === link.href
-                    ? "glass text-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-white/10"
+                    ? "text-foreground"
+                    : "text-muted-foreground",
+                  i === 0 && "delay-1",
+                  i === 1 && "delay-2",
+                  i === 2 && "delay-3",
+                  i === 3 && "delay-4"
                 )}
+                style={{ animationFillMode: "forwards" }}
               >
                 {link.label}
               </Link>
             ))}
+            <div className="pt-8 animate-fade-up delay-5 opacity-0" style={{ animationFillMode: "forwards" }}>
+              <p className="text-xs text-muted-foreground mb-3">{userEmail}</p>
+              <button
+                onClick={handleSignOut}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-500"
+              >
+                Sign out
+              </button>
+            </div>
           </nav>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground hidden sm:block">
-            {userEmail}
-          </span>
-          <ThemeToggle />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSignOut}
-            className="hidden sm:inline-flex rounded-full"
-          >
-            Sign out
-          </Button>
-          <button
-            className="sm:hidden p-2 rounded-full hover:bg-white/10"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label="Toggle navigation"
-          >
-            {mobileOpen ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile nav */}
-      {mobileOpen && (
-        <div className="sm:hidden glass-strong border-t border-white/10 px-4 py-3 space-y-1">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                "block py-2 px-3 rounded-lg text-sm transition-colors",
-                pathname === link.href
-                  ? "glass text-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
-          <div className="pt-2 border-t border-white/10 mt-2">
-            <p className="text-xs text-muted-foreground mb-2 px-3">
-              {userEmail}
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSignOut}
-              className="w-full justify-start rounded-lg"
-            >
-              Sign out
-            </Button>
-          </div>
-        </div>
       )}
-    </header>
+
+      {/* Spacer for floating nav */}
+      <div className="h-24" />
+    </>
   );
 }
