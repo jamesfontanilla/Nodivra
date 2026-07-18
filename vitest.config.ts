@@ -3,7 +3,9 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   css: {
-    postcss: false,
+    postcss: {
+      plugins: [],
+    },
   },
   test: {
     environment: "node",
