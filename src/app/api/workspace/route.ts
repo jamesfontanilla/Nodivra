@@ -4,6 +4,7 @@ import {
   publishWorkspace,
   saveWorkspaceDraft,
 } from "@/lib/workspace";
+import type { NextRequest } from "next/server";
 
 export async function GET() {
   const viewer = await getViewerContext();
@@ -11,7 +12,7 @@ export async function GET() {
   return Response.json({ ok: true, workspace });
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const viewer = await getViewerContext();
   let body: unknown;
 

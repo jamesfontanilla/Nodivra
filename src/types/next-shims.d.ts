@@ -60,12 +60,12 @@ declare module "next/navigation.js" {
 }
 
 declare module "next/server" {
-  export type NextRequest = {
+  export interface NextRequest extends Request {
     cookies: {
       get(name: string): { value: string } | undefined;
     };
     nextUrl: URL;
-  };
+  }
 
   export class NextResponse {
     cookies: {
