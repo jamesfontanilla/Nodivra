@@ -1,0 +1,11 @@
+node_modules/
+.next/
+coverage/
+.turbo/
+.vercel/
+.DS_Store
+.env
+.env.*
+!.env.example
+.agents/
+supabase/
