@@ -227,9 +227,9 @@ export function FieldShell({
 }) {
   return (
     <div className="space-y-2">
-      <div className="flex items-end justify-between gap-4">
-        <Label>{label}</Label>
-        {hint ? <p className="text-xs text-sand-300/70">{hint}</p> : null}
+      <div className="space-y-1">
+        <Label className="mb-0 min-w-0">{label}</Label>
+        {hint ? <p className="text-xs leading-5 text-sand-300/70">{hint}</p> : null}
       </div>
       {children}
       {error ? <p className="text-xs text-rose-300">{error}</p> : null}

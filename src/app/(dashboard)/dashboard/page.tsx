@@ -45,7 +45,7 @@ export default async function DashboardPage() {
   const workspace = await getWorkspaceSnapshot(viewer);
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto min-h-screen w-full max-w-[90rem] px-4 py-8 sm:px-6 lg:px-8">
       <DashboardEditor initialWorkspace={workspace} demoMode={viewer.mode === "demo"} />
     </main>
   );

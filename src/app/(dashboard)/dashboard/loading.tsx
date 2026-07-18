@@ -2,7 +2,7 @@ import { Panel } from "@/components/ui";
 
 export default function DashboardLoading() {
   return (
-    <main className="mx-auto min-h-screen w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto min-h-screen w-full max-w-[90rem] px-4 py-8 sm:px-6 lg:px-8">
       <div className="space-y-6">
         <Panel tone="dark">
           <div className="space-y-4">
@@ -11,7 +11,7 @@ export default function DashboardLoading() {
             <div className="h-20 w-full rounded-[1.5rem] bg-white/10" />
           </div>
         </Panel>
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+        <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.45fr)_minmax(400px,0.75fr)]">
           <div className="space-y-6">
             <Panel tone="dark">
               <div className="space-y-4">

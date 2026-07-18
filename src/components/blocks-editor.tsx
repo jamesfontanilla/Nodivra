@@ -141,7 +141,7 @@ function BlockConfigurationFields({
     case "link_button": {
       const value = config as LinkButtonConfiguration;
       return (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4">
           <FieldShell label="Button label" hint="1 to 48 characters."><Input value={value.label} onChange={(event) => onChange("label", event.target.value)} /></FieldShell>
           <FieldShell label="URL" hint="http or https only."><Input value={value.url} onChange={(event) => onChange("url", event.target.value)} /></FieldShell>
           <FieldShell label="Detail" hint="Optional supporting text."><Input value={value.detail} onChange={(event) => onChange("detail", event.target.value)} /></FieldShell>
@@ -152,7 +152,7 @@ function BlockConfigurationFields({
     case "social_link": {
       const value = config as SocialLinkConfiguration;
       return (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4">
           <FieldShell label="Network" hint="Mastodon, Dribbble, etc."><Input value={value.network} onChange={(event) => onChange("network", event.target.value)} /></FieldShell>
           <FieldShell label="Label" hint="Your public handle or name."><Input value={value.label} onChange={(event) => onChange("label", event.target.value)} /></FieldShell>
           <FieldShell label="URL" hint="http or https only."><Input value={value.url} onChange={(event) => onChange("url", event.target.value)} /></FieldShell>
@@ -163,12 +163,12 @@ function BlockConfigurationFields({
     case "project_highlight": {
       const value = config as ProjectHighlightConfiguration;
       return (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4">
           <FieldShell label="Project name" hint="The headline of the proof point."><Input value={value.projectName} onChange={(event) => onChange("projectName", event.target.value)} /></FieldShell>
           <FieldShell label="Role" hint="Optional role or contribution."><Input value={value.role} onChange={(event) => onChange("role", event.target.value)} /></FieldShell>
           <FieldShell label="Case study URL" hint="Optional http or https URL."><Input value={value.url} onChange={(event) => onChange("url", event.target.value)} /></FieldShell>
           <FieldShell label="Technologies" hint="Comma-separated, up to six."><Input value={value.technologies.join(", ")} onChange={(event) => onChange("technologies", event.target.value.split(",").map((item) => item.trim()).filter(Boolean))} /></FieldShell>
-          <div className="md:col-span-2"><FieldShell label="Summary" hint="220 characters or fewer."><Textarea value={value.summary} onChange={(event) => onChange("summary", event.target.value)} /></FieldShell></div>
+          <FieldShell label="Summary" hint="220 characters or fewer."><Textarea value={value.summary} onChange={(event) => onChange("summary", event.target.value)} /></FieldShell>
         </div>
       );
     }
@@ -184,17 +184,17 @@ function BlockConfigurationFields({
     case "image_card": {
       const value = config as ImageCardConfiguration;
       return (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4">
           <FieldShell label="Image URL" hint="Remote image, http or https only."><Input value={value.imageUrl} onChange={(event) => onChange("imageUrl", event.target.value)} /></FieldShell>
           <FieldShell label="Alt text" hint="Required for accessibility."><Input value={value.altText} onChange={(event) => onChange("altText", event.target.value)} /></FieldShell>
-          <div className="md:col-span-2"><FieldShell label="Caption" hint="Optional, 160 characters or fewer."><Input value={value.caption} onChange={(event) => onChange("caption", event.target.value)} /></FieldShell></div>
+          <FieldShell label="Caption" hint="Optional, 160 characters or fewer."><Input value={value.caption} onChange={(event) => onChange("caption", event.target.value)} /></FieldShell>
         </div>
       );
     }
     case "divider": {
       const value = config as DividerConfiguration;
       return (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4">
           <FieldShell label="Style" hint="Line or breathing space."><Select value={value.style} onChange={(event) => onChange("style", event.target.value)}><option value="line">Line</option><option value="space">Space</option></Select></FieldShell>
           <FieldShell label="Label" hint="Optional marker."><Input value={value.label} onChange={(event) => onChange("label", event.target.value)} /></FieldShell>
         </div>
@@ -203,31 +203,31 @@ function BlockConfigurationFields({
     case "cta_card": {
       const value = config as CtaCardConfiguration;
       return (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4">
           <FieldShell label="CTA label" hint="The button text."><Input value={value.ctaLabel} onChange={(event) => onChange("ctaLabel", event.target.value)} /></FieldShell>
           <FieldShell label="CTA URL" hint="http or https only."><Input value={value.ctaUrl} onChange={(event) => onChange("ctaUrl", event.target.value)} /></FieldShell>
           <FieldShell label="Accent" hint="Choose the block mood."><Select value={value.accent} onChange={(event) => onChange("accent", event.target.value)}><option value="sand">Sand</option><option value="moss">Moss</option><option value="ink">Ink</option></Select></FieldShell>
-          <div className="md:col-span-2"><FieldShell label="Body" hint="240 characters or fewer."><Textarea value={value.body} onChange={(event) => onChange("body", event.target.value)} /></FieldShell></div>
+          <FieldShell label="Body" hint="240 characters or fewer."><Textarea value={value.body} onChange={(event) => onChange("body", event.target.value)} /></FieldShell>
         </div>
       );
     }
     case "availability_card": {
       const value = config as AvailabilityCardConfiguration;
       return (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4">
           <FieldShell label="Status" hint="Shown with a clear state."><Select value={value.status} onChange={(event) => onChange("status", event.target.value)}><option value="available">Available</option><option value="busy">Heads down</option><option value="away">Away</option><option value="offline">Offline</option></Select></FieldShell>
           <FieldShell label="Timezone" hint="Short timezone label."><Input value={value.timezone} onChange={(event) => onChange("timezone", event.target.value)} /></FieldShell>
-          <div className="md:col-span-2"><FieldShell label="Detail" hint="160 characters or fewer."><Textarea value={value.detail} onChange={(event) => onChange("detail", event.target.value)} /></FieldShell></div>
+          <FieldShell label="Detail" hint="160 characters or fewer."><Textarea value={value.detail} onChange={(event) => onChange("detail", event.target.value)} /></FieldShell>
         </div>
       );
     }
     case "external_resource": {
       const value = config as ExternalResourceConfiguration;
       return (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4">
           <FieldShell label="Resource type" hint="No embeds, just a safe link."><Select value={value.resourceType} onChange={(event) => onChange("resourceType", event.target.value)}><option value="article">Article</option><option value="video">Video</option><option value="document">Document</option><option value="tool">Tool</option><option value="other">Other</option></Select></FieldShell>
           <FieldShell label="URL" hint="http or https only."><Input value={value.url} onChange={(event) => onChange("url", event.target.value)} /></FieldShell>
-          <div className="md:col-span-2"><FieldShell label="Description" hint="220 characters or fewer."><Textarea value={value.description} onChange={(event) => onChange("description", event.target.value)} /></FieldShell></div>
+          <FieldShell label="Description" hint="220 characters or fewer."><Textarea value={value.description} onChange={(event) => onChange("description", event.target.value)} /></FieldShell>
         </div>
       );
     }
@@ -404,7 +404,7 @@ export function BlocksEditor({
             return (
               <section key={section.id} className="rounded-[2rem] bg-white/5 p-1.5 ring-1 ring-white/10">
                 <div className="rounded-[1.625rem] bg-ink-950/88 px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:px-6">
-                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="flex flex-col gap-5">
                     <div className="flex min-w-0 items-start gap-3">
                       <div className="mt-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-sand-300/70 ring-1 ring-white/10"><GripIcon className="h-4 w-4" /></div>
                       <div className="min-w-0 flex-1 space-y-4">
@@ -415,7 +415,7 @@ export function BlocksEditor({
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button type="button" variant="ghost" onClick={() => patchSection(section.id, "isCollapsed", !section.isCollapsed)} trailingIcon={section.isCollapsed ? <ChevronDownIcon className="h-3.5 w-3.5" /> : <ChevronUpIcon className="h-3.5 w-3.5" />}>{section.isCollapsed ? "Expand" : "Collapse"}</Button>
                       <Button type="button" variant="ghost" onClick={() => patchSection(section.id, "isVisible", !section.isVisible)}>{section.isVisible ? "Hide" : "Show"}</Button>
                       <Button type="button" variant="ghost" onClick={() => moveSection(section.id, "up")} disabled={sectionIndex === 0} trailingIcon={<ChevronUpIcon className="h-3.5 w-3.5" />}>Up</Button>
@@ -440,12 +440,12 @@ export function BlocksEditor({
                         {sectionBlocks.map((block, blockIndex) => (
                           <div key={block.id} className="rounded-[1.5rem] bg-black/10 p-1.5 ring-1 ring-white/10">
                             <div className="rounded-[1.25rem] bg-white/5 p-4 sm:p-5">
-                              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                              <div className="flex flex-col gap-4">
                                 <div className="flex min-w-0 items-start gap-3">
                                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-sand-100 text-[10px] font-semibold tracking-[0.18em] text-ink-950">{String(blockIndex + 1).padStart(2, "0")}</div>
                                   <div className="min-w-0 flex-1 space-y-1"><div className="flex flex-wrap items-center gap-2"><Badge tone="muted">{blockLabel(block.type)}</Badge><Badge tone={block.visibility === "public" ? "success" : "muted"}>{block.visibility === "public" ? "Public" : "Hidden"}</Badge></div><p className="text-xs text-sand-300/70">Typed configuration with safe external links only.</p></div>
                                 </div>
-                                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                                <div className="flex flex-wrap items-center gap-2">
                                   <Button type="button" variant="ghost" onClick={() => moveBlock(block.id, "up")} disabled={blockIndex === 0} trailingIcon={<ChevronUpIcon className="h-3.5 w-3.5" />}>Up</Button>
                                   <Button type="button" variant="ghost" onClick={() => moveBlock(block.id, "down")} disabled={blockIndex === sectionBlocks.length - 1} trailingIcon={<ChevronDownIcon className="h-3.5 w-3.5" />}>Down</Button>
                                   <Button type="button" variant="ghost" onClick={() => patchBlock(block.id, "visibility", block.visibility === "public" ? "hidden" : "public")}>{block.visibility === "public" ? "Hide" : "Show"}</Button>

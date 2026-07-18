@@ -548,7 +548,7 @@ export function DashboardEditor({
         ) : null}
       </Panel>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+      <div className="grid gap-8 2xl:grid-cols-[minmax(0,1.45fr)_minmax(400px,0.75fr)]">
         <div className="space-y-6">
           {activeTab === "profile" ? (
             <>
