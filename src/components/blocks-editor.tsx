@@ -249,6 +249,7 @@ export function BlocksEditor({
 }) {
   const [newBlockType, setNewBlockType] = useState<BlockType>("link_button");
   const [showPreview, setShowPreview] = useState(false);
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
   function updateSections(nextSections: ProfileSectionDraft[]) {
     onChange(nextSections.map((section, position) => ({ ...section, position })), blocks);
@@ -277,6 +278,9 @@ export function BlocksEditor({
   }
 
   function removeSection(id: string) {
+    if (blocks.some((block) => block.sectionId === id && block.id === selectedBlockId)) {
+      setSelectedBlockId(null);
+    }
     const nextSections = sections
       .filter((section) => section.id !== id)
       .map((section, position) => ({ ...section, position, updatedAt: timestamp() }));
@@ -303,6 +307,7 @@ export function BlocksEditor({
     }
     const sectionBlocks = blocks.filter((block) => block.sectionId === targetSectionId);
     const block = createBlock(profileId, targetSectionId, newBlockType, sectionBlocks.length);
+    setSelectedBlockId(block.id);
     onChange(nextSections, [...blocks, block]);
   }
 
@@ -315,6 +320,9 @@ export function BlocksEditor({
   }
 
   function removeBlock(id: string) {
+    if (selectedBlockId === id) {
+      setSelectedBlockId(null);
+    }
     const next = blocks.filter((block) => block.id !== id);
     const positions = new Map<string, number>();
     updateBlocks(next.map((block) => {
@@ -334,6 +342,7 @@ export function BlocksEditor({
       }
       return block.id === source.id ? [block, copy] : [block];
     });
+    setSelectedBlockId(copy.id);
     updateBlocks(next);
   }
 
@@ -352,6 +361,7 @@ export function BlocksEditor({
 
   const previewSections = toPublicSections(sections);
   const previewBlocks = toPublicBlocks(blocks, previewSections);
+  const selectedBlock = blocks.find((block) => block.id === selectedBlockId) ?? null;
 
   return (
     <div className="space-y-5">
@@ -387,75 +397,109 @@ export function BlocksEditor({
         <EmptyState title="Start with a section" description="Sections keep the page readable. Add one for About, Work, Writing, Contact, or any other part of your story." action={<Button type="button" variant="secondary" onClick={addSection} trailingIcon={<PlusIcon className="h-3.5 w-3.5" />}>Add your first section</Button>} />
       ) : null}
 
-      <div className="space-y-4">
-        {sections.map((section, sectionIndex) => {
-          const sectionBlocks = sortBlocks(blocks.filter((block) => block.sectionId === section.id));
-          return (
-            <section key={section.id} className="rounded-[2rem] bg-white/5 p-1.5 ring-1 ring-white/10">
-              <div className="rounded-[1.625rem] bg-ink-950/88 px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:px-6">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className="mt-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-sand-300/70 ring-1 ring-white/10"><GripIcon className="h-4 w-4" /></div>
-                    <div className="min-w-0 flex-1 space-y-4">
-                      <div className="flex flex-wrap items-center gap-2"><Badge tone="accent">Section {String(sectionIndex + 1).padStart(2, "0")}</Badge><Badge tone={section.isVisible ? "success" : "muted"}>{section.isVisible ? "Visible" : "Hidden"}</Badge><Badge tone="muted">{sectionBlocks.length} blocks</Badge></div>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <FieldShell label="Section title" hint="Shown publicly."><Input value={section.title} onChange={(event) => patchSection(section.id, "title", event.target.value)} /></FieldShell>
-                        <FieldShell label="Slug" hint="Lowercase anchor label."><Input value={section.slug} onChange={(event) => patchSection(section.id, "slug", event.target.value)} /></FieldShell>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+        <div className="space-y-4">
+          {sections.map((section, sectionIndex) => {
+            const sectionBlocks = sortBlocks(blocks.filter((block) => block.sectionId === section.id));
+            return (
+              <section key={section.id} className="rounded-[2rem] bg-white/5 p-1.5 ring-1 ring-white/10">
+                <div className="rounded-[1.625rem] bg-ink-950/88 px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:px-6">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="mt-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-sand-300/70 ring-1 ring-white/10"><GripIcon className="h-4 w-4" /></div>
+                      <div className="min-w-0 flex-1 space-y-4">
+                        <div className="flex flex-wrap items-center gap-2"><Badge tone="accent">Section {String(sectionIndex + 1).padStart(2, "0")}</Badge><Badge tone={section.isVisible ? "success" : "muted"}>{section.isVisible ? "Visible" : "Hidden"}</Badge><Badge tone="muted">{sectionBlocks.length} blocks</Badge></div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <FieldShell label="Section title" hint="Shown publicly."><Input value={section.title} onChange={(event) => patchSection(section.id, "title", event.target.value)} /></FieldShell>
+                          <FieldShell label="Slug" hint="Lowercase anchor label."><Input value={section.slug} onChange={(event) => patchSection(section.id, "slug", event.target.value)} /></FieldShell>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                    <Button type="button" variant="ghost" onClick={() => patchSection(section.id, "isCollapsed", !section.isCollapsed)} trailingIcon={section.isCollapsed ? <ChevronDownIcon className="h-3.5 w-3.5" /> : <ChevronUpIcon className="h-3.5 w-3.5" />}>{section.isCollapsed ? "Expand" : "Collapse"}</Button>
-                    <Button type="button" variant="ghost" onClick={() => patchSection(section.id, "isVisible", !section.isVisible)}>{section.isVisible ? "Hide" : "Show"}</Button>
-                    <Button type="button" variant="ghost" onClick={() => moveSection(section.id, "up")} disabled={sectionIndex === 0} trailingIcon={<ChevronUpIcon className="h-3.5 w-3.5" />}>Up</Button>
-                    <Button type="button" variant="ghost" onClick={() => moveSection(section.id, "down")} disabled={sectionIndex === sections.length - 1} trailingIcon={<ChevronDownIcon className="h-3.5 w-3.5" />}>Down</Button>
-                    <Button type="button" variant="danger" onClick={() => removeSection(section.id)} trailingIcon={<TrashIcon className="h-3.5 w-3.5" />}>Delete</Button>
-                  </div>
-                </div>
-
-                {!section.isCollapsed ? (
-                  <div className="mt-6 space-y-4 border-t border-white/10 pt-6">
-                    <div className="flex flex-col gap-3 rounded-[1.5rem] bg-white/5 p-4 ring-1 ring-white/10 sm:flex-row sm:items-end sm:justify-between">
-                      <FieldShell label="New block type" hint="Configurations stay type-safe.">
-                        <Select value={newBlockType} onChange={(event) => setNewBlockType(event.target.value as BlockType)}>
-                          {BLOCK_TYPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                        </Select>
-                      </FieldShell>
-                      <Button type="button" variant="secondary" onClick={() => addBlock(section.id)} trailingIcon={<PlusIcon className="h-3.5 w-3.5" />}>Add block</Button>
+                    <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                      <Button type="button" variant="ghost" onClick={() => patchSection(section.id, "isCollapsed", !section.isCollapsed)} trailingIcon={section.isCollapsed ? <ChevronDownIcon className="h-3.5 w-3.5" /> : <ChevronUpIcon className="h-3.5 w-3.5" />}>{section.isCollapsed ? "Expand" : "Collapse"}</Button>
+                      <Button type="button" variant="ghost" onClick={() => patchSection(section.id, "isVisible", !section.isVisible)}>{section.isVisible ? "Hide" : "Show"}</Button>
+                      <Button type="button" variant="ghost" onClick={() => moveSection(section.id, "up")} disabled={sectionIndex === 0} trailingIcon={<ChevronUpIcon className="h-3.5 w-3.5" />}>Up</Button>
+                      <Button type="button" variant="ghost" onClick={() => moveSection(section.id, "down")} disabled={sectionIndex === sections.length - 1} trailingIcon={<ChevronDownIcon className="h-3.5 w-3.5" />}>Down</Button>
+                      <Button type="button" variant="danger" onClick={() => removeSection(section.id)} trailingIcon={<TrashIcon className="h-3.5 w-3.5" />}>Delete</Button>
                     </div>
+                  </div>
 
-                    {sectionBlocks.length === 0 ? <EmptyState title="No blocks in this section" description="Choose a block type above to add the next layer of your public page." /> : null}
-                    <div className="space-y-4">
-                      {sectionBlocks.map((block, blockIndex) => (
-                        <div key={block.id} className="rounded-[1.5rem] bg-black/10 p-1.5 ring-1 ring-white/10">
-                          <div className="rounded-[1.25rem] bg-white/5 p-4 sm:p-5">
-                            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                              <div className="flex min-w-0 items-start gap-3">
-                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-sand-100 text-[10px] font-semibold tracking-[0.18em] text-ink-950">{String(blockIndex + 1).padStart(2, "0")}</div>
-                                <div className="min-w-0 flex-1 space-y-1"><div className="flex flex-wrap items-center gap-2"><Badge tone="muted">{blockLabel(block.type)}</Badge><Badge tone={block.visibility === "public" ? "success" : "muted"}>{block.visibility === "public" ? "Public" : "Hidden"}</Badge></div><p className="text-xs text-sand-300/70">Typed configuration with safe external links only.</p></div>
+                  {!section.isCollapsed ? (
+                    <div className="mt-6 space-y-4 border-t border-white/10 pt-6">
+                      <div className="flex flex-col gap-3 rounded-[1.5rem] bg-white/5 p-4 ring-1 ring-white/10 sm:flex-row sm:items-end sm:justify-between">
+                        <FieldShell label="New block type" hint="Configurations stay type-safe.">
+                          <Select value={newBlockType} onChange={(event) => setNewBlockType(event.target.value as BlockType)}>
+                            {BLOCK_TYPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </Select>
+                        </FieldShell>
+                        <Button type="button" variant="secondary" onClick={() => addBlock(section.id)} trailingIcon={<PlusIcon className="h-3.5 w-3.5" />}>Add block</Button>
+                      </div>
+
+                      {sectionBlocks.length === 0 ? <EmptyState title="No blocks in this section" description="Choose a block type above to add the next layer of your public page." /> : null}
+                      <div className="space-y-4">
+                        {sectionBlocks.map((block, blockIndex) => (
+                          <div key={block.id} className="rounded-[1.5rem] bg-black/10 p-1.5 ring-1 ring-white/10">
+                            <div className="rounded-[1.25rem] bg-white/5 p-4 sm:p-5">
+                              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                                <div className="flex min-w-0 items-start gap-3">
+                                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-sand-100 text-[10px] font-semibold tracking-[0.18em] text-ink-950">{String(blockIndex + 1).padStart(2, "0")}</div>
+                                  <div className="min-w-0 flex-1 space-y-1"><div className="flex flex-wrap items-center gap-2"><Badge tone="muted">{blockLabel(block.type)}</Badge><Badge tone={block.visibility === "public" ? "success" : "muted"}>{block.visibility === "public" ? "Public" : "Hidden"}</Badge></div><p className="text-xs text-sand-300/70">Typed configuration with safe external links only.</p></div>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                                  <Button type="button" variant="ghost" onClick={() => moveBlock(block.id, "up")} disabled={blockIndex === 0} trailingIcon={<ChevronUpIcon className="h-3.5 w-3.5" />}>Up</Button>
+                                  <Button type="button" variant="ghost" onClick={() => moveBlock(block.id, "down")} disabled={blockIndex === sectionBlocks.length - 1} trailingIcon={<ChevronDownIcon className="h-3.5 w-3.5" />}>Down</Button>
+                                  <Button type="button" variant="ghost" onClick={() => patchBlock(block.id, "visibility", block.visibility === "public" ? "hidden" : "public")}>{block.visibility === "public" ? "Hide" : "Show"}</Button>
+                                  <Button type="button" variant="ghost" onClick={() => duplicateBlock(block.id)} trailingIcon={<CopyIcon className="h-3.5 w-3.5" />}>Duplicate</Button>
+                                  <Button type="button" variant="danger" onClick={() => removeBlock(block.id)} trailingIcon={<TrashIcon className="h-3.5 w-3.5" />}>Delete</Button>
+                                </div>
                               </div>
-                              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                                <Button type="button" variant="ghost" onClick={() => moveBlock(block.id, "up")} disabled={blockIndex === 0} trailingIcon={<ChevronUpIcon className="h-3.5 w-3.5" />}>Up</Button>
-                                <Button type="button" variant="ghost" onClick={() => moveBlock(block.id, "down")} disabled={blockIndex === sectionBlocks.length - 1} trailingIcon={<ChevronDownIcon className="h-3.5 w-3.5" />}>Down</Button>
-                                <Button type="button" variant="ghost" onClick={() => patchBlock(block.id, "visibility", block.visibility === "public" ? "hidden" : "public")}>{block.visibility === "public" ? "Hide" : "Show"}</Button>
-                                <Button type="button" variant="ghost" onClick={() => duplicateBlock(block.id)} trailingIcon={<CopyIcon className="h-3.5 w-3.5" />}>Duplicate</Button>
-                                <Button type="button" variant="danger" onClick={() => removeBlock(block.id)} trailingIcon={<TrashIcon className="h-3.5 w-3.5" />}>Delete</Button>
+                              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+                                <p className="text-xs leading-6 text-sand-300/70">{block.title || "Untitled block"}</p>
+                                <Button type="button" variant={selectedBlockId === block.id ? "primary" : "secondary"} onClick={() => setSelectedBlockId(block.id)}>
+                                  {selectedBlockId === block.id ? "Editing" : "Edit settings"}
+                                </Button>
                               </div>
-                            </div>
-                            <div className="mt-5 space-y-4 border-t border-white/10 pt-5">
-                              <FieldShell label="Block title" hint="1 to 80 characters."><Input value={block.title} onChange={(event) => patchBlock(block.id, "title", event.target.value)} /></FieldShell>
-                              <BlockConfigurationFields block={block} onChange={(key, value) => patchConfiguration(block.id, key, value)} />
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
+                  ) : null}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+        <aside className="lg:sticky lg:top-6">
+        <div className="rounded-[2rem] bg-white/5 p-1.5 ring-1 ring-white/10">
+          <div className="rounded-[1.625rem] bg-ink-950/88 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:p-6">
+            {selectedBlock ? (
+              <div className="space-y-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-sand-300/70">Block settings</p>
+                    <h3 className="mt-2 font-display text-2xl tracking-tight text-sand-50">{blockLabel(selectedBlock.type)}</h3>
+                    <p className="mt-2 text-xs leading-6 text-sand-300/70">Changes stay in the private draft until you save or publish.</p>
                   </div>
-                ) : null}
+                  <button type="button" onClick={() => setSelectedBlockId(null)} className="rounded-full bg-white/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-sand-300/70 transition-[transform,background-color,color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-white/10 hover:text-sand-50">Close</button>
+                </div>
+                <div className="space-y-4 border-t border-white/10 pt-5">
+                  <FieldShell label="Block title" hint="1 to 80 characters.">
+                    <Input value={selectedBlock.title} onChange={(event) => patchBlock(selectedBlock.id, "title", event.target.value)} />
+                  </FieldShell>
+                  <BlockConfigurationFields block={selectedBlock} onChange={(key, value) => patchConfiguration(selectedBlock.id, key, value)} />
+                </div>
               </div>
-            </section>
-          );
-        })}
+            ) : (
+              <div className="space-y-4">
+                <Badge tone="muted">Settings drawer</Badge>
+                <h3 className="font-display text-2xl tracking-tight text-sand-50">Select a block to edit it.</h3>
+                <p className="text-sm leading-7 text-sand-200/80">Keep the canvas readable by editing one block at a time. Visibility, ordering, and duplication stay on each row.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
       </div>
     </div>
   );

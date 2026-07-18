@@ -268,6 +268,19 @@ export function PublicBlocks({
 
   return (
     <div className="space-y-16 py-8 sm:space-y-24 sm:py-12">
+      {sortedSections.length > 1 ? (
+        <nav aria-label="Profile sections" className="flex gap-2 overflow-x-auto pb-1">
+          {sortedSections.map((section) => (
+            <a
+              key={section.id}
+              href={`#section-${section.id}`}
+              className="shrink-0 rounded-full bg-white/5 px-4 py-2 text-xs text-sand-200/80 ring-1 ring-white/10 transition-[transform,background-color,color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:bg-white/10 hover:text-sand-50"
+            >
+              {section.title}
+            </a>
+          ))}
+        </nav>
+      ) : null}
       {sortedSections.map((section, index) => {
         const sectionBlocks = sortedBlocks.filter((block) => block.sectionId === section.id);
         if (sectionBlocks.length === 0) {

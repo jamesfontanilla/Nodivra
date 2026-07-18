@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PublicProfileCard } from "@/components/public-profile-card";
+import { PublicBlocks } from "@/components/public-blocks";
 import { BlocksEditor } from "@/components/blocks-editor";
 import {
   ArrowUpRightIcon,
@@ -43,6 +44,9 @@ type Notice = {
   message: string;
 } | null;
 
+type EditorTab = "profile" | "blocks";
+type PreviewDevice = "desktop" | "mobile";
+
 function createDraftLink(profileId: string, position: number): ProfileLinkDraft {
   const timestamp = new Date().toISOString();
   return {
@@ -59,7 +63,15 @@ function createDraftLink(profileId: string, position: number): ProfileLinkDraft 
   };
 }
 
-function statusCopy(workspace: WorkspaceSnapshot) {
+function statusCopy(workspace: WorkspaceSnapshot, isDirty: boolean) {
+  if (isDirty) {
+    return {
+      label: "Unsaved changes",
+      tone: "accent" as const,
+      note: "Your draft is private. Save or publish when it feels ready.",
+    };
+  }
+
   if (workspace.profile.isPublished) {
     return {
       label: "Published live",
@@ -105,6 +117,9 @@ export function DashboardEditor({
   const [notice, setNotice] = useState<Notice>(null);
   const [savingAction, setSavingAction] = useState<"save" | "publish" | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [activeTab, setActiveTab] = useState<EditorTab>("profile");
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
+  const [isDirty, setIsDirty] = useState(false);
 
   const draftCheck = useMemo(
     () => workspaceDraftSchema.safeParse(workspace),
@@ -121,7 +136,7 @@ export function DashboardEditor({
     workspace.sections,
     workspace.blocks,
   );
-  const status = statusCopy(workspace);
+  const status = statusCopy(workspace, isDirty);
   const publicUrl = workspace.profile.handle
     ? `/u/${workspace.profile.handle}`
     : null;
@@ -130,6 +145,7 @@ export function DashboardEditor({
     key: keyof WorkspaceSnapshot["profile"],
     value: string | boolean,
   ) {
+    setIsDirty(true);
     setWorkspace((current) => ({
       ...current,
       profile: {
@@ -146,6 +162,7 @@ export function DashboardEditor({
     key: keyof ProfileLinkDraft,
     value: string | boolean | number,
   ) {
+    setIsDirty(true);
     setWorkspace((current) => ({
       ...current,
       profile: {
@@ -166,6 +183,7 @@ export function DashboardEditor({
   }
 
   function addLink() {
+    setIsDirty(true);
     setWorkspace((current) => {
       const nextLink = createDraftLink(
         current.profile.id,
@@ -184,6 +202,7 @@ export function DashboardEditor({
   }
 
   function patchBlocks(sections: ProfileSectionDraft[], blocks: ProfileBlockDraft[]) {
+    setIsDirty(true);
     setWorkspace((current) => ({
       ...current,
       profile: {
@@ -197,6 +216,7 @@ export function DashboardEditor({
   }
 
   function removeLink(id: string) {
+    setIsDirty(true);
     setWorkspace((current) => ({
       ...current,
       profile: {
@@ -211,6 +231,7 @@ export function DashboardEditor({
   }
 
   function moveLink(id: string, direction: "up" | "down") {
+    setIsDirty(true);
     setWorkspace((current) => {
       const index = current.links.findIndex((link) => link.id === id);
       const targetIndex = direction === "up" ? index - 1 : index + 1;
@@ -270,6 +291,7 @@ export function DashboardEditor({
     }
 
     setWorkspace(payload.workspace);
+    setIsDirty(false);
     setSavingAction(null);
     setNotice({
       tone: "success",
@@ -278,6 +300,80 @@ export function DashboardEditor({
           ? "Published the live profile snapshot."
           : "Draft saved without publishing.",
     });
+  }
+
+  function revertToPublished() {
+    const published = workspace.published;
+    if (!published) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const existingLinks = new Map(workspace.links.map((link) => [link.id, link]));
+    const nextLinks = published.publishedLinks.map((link) => {
+      const existing = existingLinks.get(link.id);
+      return {
+        id: link.id,
+        profileId: workspace.profile.id,
+        title: link.title,
+        url: link.url,
+        iconLabel: link.iconLabel,
+        visibility: link.visibility,
+        isEnabled: true,
+        position: link.position,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
+    });
+    const nextSections = published.publishedSections.map((section) => ({
+      id: section.id,
+      profileId: workspace.profile.id,
+      title: section.title,
+      slug: section.slug,
+      position: section.position,
+      isVisible: true,
+      isCollapsed: false,
+      createdAt: now,
+      updatedAt: now,
+    }));
+    const nextBlocks = published.publishedBlocks.map((block) => ({
+      id: block.id,
+      profileId: workspace.profile.id,
+      sectionId: block.sectionId,
+      type: block.type,
+      title: block.title,
+      visibility: "public" as const,
+      position: block.position,
+      configuration: block.configuration,
+      createdAt: now,
+      updatedAt: now,
+    }));
+
+    setWorkspace((current) => ({
+      ...current,
+      profile: {
+        ...current.profile,
+        handle: published.handle,
+        displayName: published.displayName,
+        headline: published.headline,
+        bio: published.bio,
+        locationText: published.locationText,
+        timezone: published.timezone,
+        avatarInitials: published.avatarInitials,
+        avatarUrl: published.avatarUrl,
+        primaryCtaLabel: published.primaryCtaLabel,
+        primaryCtaUrl: published.primaryCtaUrl,
+        availabilityStatus: published.availabilityStatus,
+        isPublished: true,
+        updatedAt: now,
+      },
+      links: nextLinks,
+      sections: nextSections,
+      blocks: nextBlocks,
+    }));
+    setIsDirty(false);
+    setNotice({ tone: "success", message: "Draft restored to the latest published snapshot." });
+    setFieldErrors({});
   }
 
   async function copyPublicLink() {
@@ -325,10 +421,10 @@ export function DashboardEditor({
     await copyPublicLink();
   }
 
-  const canSave = draftCheck.success && savingAction === null;
+  const canSave = draftCheck.success && savingAction === null && isDirty;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-24 lg:pb-0">
       <Panel tone="dark" className="overflow-hidden">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-4">
@@ -388,6 +484,35 @@ export function DashboardEditor({
 
         <Divider className="my-6" />
 
+        <div className="flex flex-wrap items-center gap-2 rounded-[1.35rem] bg-white/5 p-1.5 ring-1 ring-white/10" role="tablist" aria-label="Editor views">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "profile"}
+            onClick={() => setActiveTab("profile")}
+            className={cn(
+              "flex-1 rounded-full px-4 py-3 text-left text-sm transition-[transform,background-color,color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.99] sm:flex-none sm:min-w-[180px]",
+              activeTab === "profile" ? "bg-sand-100 text-ink-950" : "text-sand-200/70 hover:bg-white/10 hover:text-sand-50",
+            )}
+          >
+            <span className="block font-medium">Profile</span>
+            <span className={cn("mt-1 block text-xs", activeTab === "profile" ? "text-ink-700" : "text-sand-300/60")}>Identity and primary links</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "blocks"}
+            onClick={() => setActiveTab("blocks")}
+            className={cn(
+              "flex-1 rounded-full px-4 py-3 text-left text-sm transition-[transform,background-color,color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.99] sm:flex-none sm:min-w-[180px]",
+              activeTab === "blocks" ? "bg-sand-100 text-ink-950" : "text-sand-200/70 hover:bg-white/10 hover:text-sand-50",
+            )}
+          >
+            <span className="block font-medium">Blocks</span>
+            <span className={cn("mt-1 block text-xs", activeTab === "blocks" ? "text-ink-700" : "text-sand-300/60")}>Sections and proof of work</span>
+          </button>
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-[1.35rem] border border-white/10 bg-white/5 px-4 py-4">
             <p className="text-xs uppercase tracking-[0.2em] text-sand-300/70">Handle</p>
@@ -425,6 +550,8 @@ export function DashboardEditor({
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <div className="space-y-6">
+          {activeTab === "profile" ? (
+            <>
           <Panel tone="dark">
             <div className="space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -586,14 +713,6 @@ export function DashboardEditor({
               </FieldShell>
             </div>
           </Panel>
-
-          <BlocksEditor
-            profileId={workspace.profile.id}
-            sections={workspace.sections}
-            blocks={workspace.blocks}
-            onChange={patchBlocks}
-            fieldErrors={fieldErrors}
-          />
 
           <Panel tone="dark">
             <div className="space-y-5">
@@ -782,6 +901,16 @@ export function DashboardEditor({
               )}
             </div>
           </Panel>
+            </>
+          ) : (
+            <BlocksEditor
+              profileId={workspace.profile.id}
+              sections={workspace.sections}
+              blocks={workspace.blocks}
+              onChange={patchBlocks}
+              fieldErrors={fieldErrors}
+            />
+          )}
         </div>
 
         <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
@@ -794,12 +923,40 @@ export function DashboardEditor({
                     See the public page as you build it.
                   </h2>
                 </div>
-                <Badge tone={workspace.profile.isPublished ? "success" : "muted"}>
-                  {workspace.profile.isPublished ? "Live" : "Draft"}
-                </Badge>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Badge tone={isDirty ? "accent" : workspace.profile.isPublished ? "success" : "muted"}>
+                    {isDirty ? "Draft changes" : workspace.profile.isPublished ? "Live" : "Draft"}
+                  </Badge>
+                  <div className="flex rounded-full bg-white/5 p-1 ring-1 ring-white/10" role="tablist" aria-label="Preview size">
+                    {(["desktop", "mobile"] as const).map((device) => (
+                      <button
+                        key={device}
+                        type="button"
+                        role="tab"
+                        aria-selected={previewDevice === device}
+                        onClick={() => setPreviewDevice(device)}
+                        className={cn(
+                          "rounded-full px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] transition-[transform,background-color,color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                          previewDevice === device ? "bg-white/10 text-sand-50" : "text-sand-300/60 hover:text-sand-100",
+                        )}
+                      >
+                        {device}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              <PublicProfileCard profile={livePreview} mode="preview" />
+              <div className={cn(
+                "mx-auto transition-[max-width] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                previewDevice === "mobile" ? "max-w-[390px]" : "max-w-none",
+              )}>
+                <PublicProfileCard profile={livePreview} mode="preview" />
+                <PublicBlocks
+                  sections={livePreview.publishedSections}
+                  blocks={livePreview.publishedBlocks}
+                />
+              </div>
             </div>
           </Panel>
 
@@ -857,6 +1014,11 @@ export function DashboardEditor({
                       <ArrowUpRightIcon className="h-4 w-4" />
                     </Link>
                   ) : null}
+                  {isDirty ? (
+                    <Button type="button" variant="ghost" onClick={revertToPublished}>
+                      Revert to published
+                    </Button>
+                  ) : null}
                 </div>
               ) : (
                 <EmptyState
@@ -884,6 +1046,19 @@ export function DashboardEditor({
             </div>
           </Panel>
         </div>
+      </div>
+
+      <div className="fixed inset-x-4 bottom-4 z-30 flex items-center gap-3 rounded-[1.5rem] bg-ink-950/95 p-2 shadow-halo ring-1 ring-white/15 backdrop-blur-xl lg:hidden">
+        <div className="min-w-0 flex-1 px-3">
+          <p className="truncate text-xs font-medium text-sand-50">{isDirty ? "Unsaved changes" : "All changes saved"}</p>
+          <p className="truncate text-[10px] uppercase tracking-[0.16em] text-sand-300/60">{activeTab === "blocks" ? "Blocks editor" : "Profile editor"}</p>
+        </div>
+        <Button type="button" variant="secondary" disabled={!canSave} onClick={() => void saveWorkspace("save")}>
+          {savingAction === "save" ? "Saving" : "Save"}
+        </Button>
+        <Button type="button" disabled={!canSave} onClick={() => void saveWorkspace("publish")}>
+          {savingAction === "publish" ? "Publishing" : "Publish"}
+        </Button>
       </div>
     </div>
   );

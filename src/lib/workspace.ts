@@ -169,6 +169,21 @@ function createBlankProfile(ownerId: string): ProfileDraft {
   };
 }
 
+function createStarterSection(profileId: string): ProfileSectionDraft {
+  const timestamp = nowIso();
+  return {
+    id: randomUUID(),
+    profileId,
+    title: "About",
+    slug: "about",
+    position: 0,
+    isVisible: true,
+    isCollapsed: false,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
 export function createBlankWorkspace(
   mode: ViewerContext["mode"],
   ownerId: string,
@@ -176,7 +191,7 @@ export function createBlankWorkspace(
   return {
     profile: createBlankProfile(ownerId),
     links: [],
-    sections: [],
+    sections: [createStarterSection(ownerId)],
     blocks: [],
     published: null,
     auditLogs: [],
