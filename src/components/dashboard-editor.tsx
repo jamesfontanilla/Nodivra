@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PublicProfileCard } from "@/components/public-profile-card";
+import { BlocksEditor } from "@/components/blocks-editor";
 import {
   ArrowUpRightIcon,
   CheckIcon,
@@ -16,7 +17,12 @@ import {
 import { buildHandleSuggestion, getTimeZoneOptions, workspaceDraftSchema } from "@/lib/validation";
 import { buildPublicProfileSnapshot } from "@/lib/snapshot";
 import { cn } from "@/lib/classnames";
-import type { ProfileLinkDraft, WorkspaceSnapshot } from "@/types/nodivra";
+import type {
+  ProfileBlockDraft,
+  ProfileLinkDraft,
+  ProfileSectionDraft,
+  WorkspaceSnapshot,
+} from "@/types/nodivra";
 import {
   Badge,
   Button,
@@ -112,6 +118,8 @@ export function DashboardEditor({
     workspace.profile,
     workspace.links,
     workspace.profile.updatedAt,
+    workspace.sections,
+    workspace.blocks,
   );
   const status = statusCopy(workspace);
   const publicUrl = workspace.profile.handle
@@ -173,6 +181,19 @@ export function DashboardEditor({
         links: [...current.links, nextLink],
       };
     });
+  }
+
+  function patchBlocks(sections: ProfileSectionDraft[], blocks: ProfileBlockDraft[]) {
+    setWorkspace((current) => ({
+      ...current,
+      profile: {
+        ...current.profile,
+        isPublished: false,
+        updatedAt: new Date().toISOString(),
+      },
+      sections,
+      blocks,
+    }));
   }
 
   function removeLink(id: string) {
@@ -565,6 +586,14 @@ export function DashboardEditor({
               </FieldShell>
             </div>
           </Panel>
+
+          <BlocksEditor
+            profileId={workspace.profile.id}
+            sections={workspace.sections}
+            blocks={workspace.blocks}
+            onChange={patchBlocks}
+            fieldErrors={fieldErrors}
+          />
 
           <Panel tone="dark">
             <div className="space-y-5">

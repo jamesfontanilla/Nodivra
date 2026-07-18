@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PublicProfileCard } from "@/components/public-profile-card";
+import { PublicBlocks } from "@/components/public-blocks";
 import { Reveal } from "@/components/reveal";
 import { Badge, Panel } from "@/components/ui";
 import { buildPublicProfileMetadata } from "@/lib/metadata";
@@ -41,6 +42,10 @@ export default async function PublicProfilePage({
           <Badge tone="muted">Public profile</Badge>
         </div>
         <PublicProfileCard profile={activeProfile} mode="public" />
+        <PublicBlocks
+          sections={activeProfile.publishedSections}
+          blocks={activeProfile.publishedBlocks}
+        />
       </Reveal>
 
       <Reveal delay={120} className="mt-6">

@@ -2,8 +2,10 @@ import {
   DEMO_HANDLE,
   DEMO_USER_ID,
   type AuditLogEntry,
+  type ProfileBlockDraft,
   type ProfileDraft,
   type ProfileLinkDraft,
+  type ProfileSectionDraft,
   type WorkspaceSnapshot,
 } from "@/types/nodivra";
 import { buildPublicProfileSnapshot } from "@/lib/snapshot";
@@ -78,6 +80,205 @@ function createDemoLinks(profileId: string): ProfileLinkDraft[] {
   ];
 }
 
+function createDemoSections(profileId: string): ProfileSectionDraft[] {
+  const timestamp = now();
+  return [
+    {
+      id: "0b8f8ad4-1aa1-4c20-9a01-000000000001",
+      profileId,
+      title: "About",
+      slug: "about",
+      position: 0,
+      isVisible: true,
+      isCollapsed: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "0b8f8ad4-1aa1-4c20-9a01-000000000002",
+      profileId,
+      title: "Selected work",
+      slug: "selected-work",
+      position: 1,
+      isVisible: true,
+      isCollapsed: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "0b8f8ad4-1aa1-4c20-9a01-000000000003",
+      profileId,
+      title: "Elsewhere",
+      slug: "elsewhere",
+      position: 2,
+      isVisible: true,
+      isCollapsed: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ];
+}
+
+function createDemoBlocks(
+  profileId: string,
+  sections: ProfileSectionDraft[],
+): ProfileBlockDraft[] {
+  const timestamp = now();
+  const aboutId = sections[0]!.id;
+  const workId = sections[1]!.id;
+  const elsewhereId = sections[2]!.id;
+
+  return [
+    {
+      id: "7e5a1d12-9d10-42d7-a001-000000000001",
+      profileId,
+      sectionId: aboutId,
+      type: "text_section",
+      title: "A little context",
+      visibility: "public",
+      position: 0,
+      configuration: {
+        body: "I shape product systems, developer tools, and public surfaces where clarity is part of the craft.",
+        align: "left",
+      },
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "7e5a1d12-9d10-42d7-a001-000000000002",
+      profileId,
+      sectionId: aboutId,
+      type: "availability_card",
+      title: "Availability",
+      visibility: "public",
+      position: 1,
+      configuration: {
+        status: "available",
+        detail: "Open to thoughtful product and platform work this quarter.",
+        timezone: "America/Chicago",
+      },
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "7e5a1d12-9d10-42d7-a001-000000000003",
+      profileId,
+      sectionId: workId,
+      type: "project_highlight",
+      title: "Signal / proof of work",
+      visibility: "public",
+      position: 0,
+      configuration: {
+        projectName: "Signal",
+        summary: "A calm operating surface for teams shipping complex developer products.",
+        role: "Product design and systems",
+        technologies: ["Next.js", "TypeScript", "Supabase"],
+        url: "https://example.com/signal",
+      },
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "7e5a1d12-9d10-42d7-a001-000000000004",
+      profileId,
+      sectionId: workId,
+      type: "image_card",
+      title: "The workbench",
+      visibility: "public",
+      position: 1,
+      configuration: {
+        imageUrl: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&q=80",
+        altText: "Laptop showing a dark developer workspace",
+        caption: "Interfaces should make the next good decision easier.",
+      },
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "7e5a1d12-9d10-42d7-a001-000000000005",
+      profileId,
+      sectionId: workId,
+      type: "divider",
+      title: "Work divider",
+      visibility: "public",
+      position: 2,
+      configuration: {
+        style: "line",
+        label: "More soon",
+      },
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "7e5a1d12-9d10-42d7-a001-000000000009",
+      profileId,
+      sectionId: workId,
+      type: "link_button",
+      title: "Open the workbench",
+      visibility: "public",
+      position: 3,
+      configuration: {
+        label: "See the full workbench",
+        url: "https://example.com/workbench",
+        detail: "example.com",
+        iconLabel: "GO",
+      },
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "7e5a1d12-9d10-42d7-a001-000000000006",
+      profileId,
+      sectionId: elsewhereId,
+      type: "social_link",
+      title: "Find me elsewhere",
+      visibility: "public",
+      position: 0,
+      configuration: {
+        network: "Mastodon",
+        label: "@nodivra",
+        url: "https://example.com/social",
+        iconLabel: "M",
+      },
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "7e5a1d12-9d10-42d7-a001-000000000007",
+      profileId,
+      sectionId: elsewhereId,
+      type: "external_resource",
+      title: "A useful resource",
+      visibility: "public",
+      position: 1,
+      configuration: {
+        resourceType: "article",
+        url: "https://example.com/reading",
+        description: "A manually curated link with no embedded third-party content.",
+      },
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "7e5a1d12-9d10-42d7-a001-000000000008",
+      profileId,
+      sectionId: elsewhereId,
+      type: "cta_card",
+      title: "Start a conversation",
+      visibility: "public",
+      position: 2,
+      configuration: {
+        body: "Have a product surface that needs more clarity? Let’s compare notes.",
+        ctaLabel: "Say hello",
+        ctaUrl: "https://example.com/contact",
+        accent: "moss",
+      },
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ];
+}
+
 function createAuditLogs(profileId: string): AuditLogEntry[] {
   const timestamp = now();
   return [
@@ -100,10 +301,20 @@ function createAuditLogs(profileId: string): AuditLogEntry[] {
 function createDemoStore(): WorkspaceSnapshot {
   const profile = createDemoProfile();
   const links = createDemoLinks(profile.id);
+  const sections = createDemoSections(profile.id);
+  const blocks = createDemoBlocks(profile.id, sections);
   return {
     profile,
     links,
-    published: buildPublicProfileSnapshot(profile, links, profile.updatedAt),
+    sections,
+    blocks,
+    published: buildPublicProfileSnapshot(
+      profile,
+      links,
+      profile.updatedAt,
+      sections,
+      blocks,
+    ),
     auditLogs: createAuditLogs(profile.id),
     mode: "demo",
   };
@@ -136,6 +347,8 @@ export function getDemoWorkspaceSnapshot(): WorkspaceSnapshot {
   return {
     profile: structuredClone(store.profile),
     links: structuredClone(store.links),
+    sections: structuredClone(store.sections),
+    blocks: structuredClone(store.blocks),
     published: structuredClone(store.published),
     auditLogs: structuredClone(store.auditLogs),
     mode: "demo",

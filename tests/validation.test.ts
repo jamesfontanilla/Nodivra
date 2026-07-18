@@ -4,6 +4,7 @@ import {
   getInitials,
   isSafeHttpUrl,
   normalizeHandle,
+  profileBlockDraftSchema,
   profileDraftSchema,
   workspaceDraftSchema,
 } from "@/lib/validation";
@@ -90,5 +91,79 @@ describe("validation helpers", () => {
     });
 
     expect(workspace.success).toBe(true);
+  });
+
+  it("rejects unsafe or untyped block configurations", () => {
+    const unsafeImage = profileBlockDraftSchema.safeParse({
+      id: "77777777-7777-4777-8777-777777777777",
+      profileId: "11111111-1111-1111-1111-111111111111",
+      sectionId: "88888888-8888-4888-8888-888888888888",
+      type: "image_card",
+      title: "Unsafe image",
+      visibility: "public",
+      position: 0,
+      configuration: {
+        imageUrl: "javascript:alert(1)",
+        altText: "Image",
+        caption: "",
+      },
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    });
+
+    const arbitraryMarkup = profileBlockDraftSchema.safeParse({
+      id: "99999999-9999-4999-8999-999999999999",
+      profileId: "11111111-1111-1111-1111-111111111111",
+      sectionId: "88888888-8888-4888-8888-888888888888",
+      type: "text_section",
+      title: "Markup",
+      visibility: "public",
+      position: 0,
+      configuration: {
+        body: "Text only",
+        align: "left",
+        html: "<script>alert(1)</script>",
+      },
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    });
+
+    expect(unsafeImage.success).toBe(false);
+    expect(arbitraryMarkup.success).toBe(false);
+  });
+
+  it("requires blocks to belong to a declared profile section", () => {
+    const workspace = workspaceDraftSchema.safeParse({
+      profile: {
+        handle: "jamie-fontanilla",
+        displayName: "Jamie Fontanilla",
+        headline: "",
+        bio: "",
+        locationText: "",
+        timezone: "UTC",
+        avatarInitials: "JF",
+        avatarUrl: "",
+        primaryCtaLabel: "",
+        primaryCtaUrl: "",
+        availabilityStatus: "available",
+        isPublished: false,
+      },
+      links: [],
+      sections: [],
+      blocks: [{
+        id: "77777777-7777-4777-8777-777777777777",
+        profileId: "11111111-1111-1111-1111-111111111111",
+        sectionId: "88888888-8888-4888-8888-888888888888",
+        type: "divider",
+        title: "Missing section",
+        visibility: "public",
+        position: 0,
+        configuration: { style: "line", label: "" },
+        createdAt: "2026-07-18T00:00:00.000Z",
+        updatedAt: "2026-07-18T00:00:00.000Z",
+      }],
+    });
+
+    expect(workspace.success).toBe(false);
   });
 });

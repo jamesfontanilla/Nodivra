@@ -1,16 +1,24 @@
 import { randomUUID } from "node:crypto";
 import { createSupabaseServerClient, hasSupabaseConfig } from "@/lib/supabase/server";
 import { getDemoStore, getDemoWorkspaceSnapshot } from "@/lib/fallback-data";
-import { buildPublicProfileSnapshot, sortLinks } from "@/lib/snapshot";
+import {
+  buildPublicProfileSnapshot,
+  sortBlocks,
+  sortLinks,
+  sortSections,
+} from "@/lib/snapshot";
 import {
   getInitials,
   isReservedHandle,
+  profileBlockDraftSchema,
   profileDraftSchema,
   publicProfileSnapshotSchema,
   toFieldErrors,
   workspaceDraftSchema,
+  type ProfileBlockDraftInput,
   type ProfileLinkDraftInput,
   type ProfileDraftInput,
+  type ProfileSectionDraftInput,
   type WorkspaceDraftInput,
 } from "@/lib/validation";
 import {
@@ -18,9 +26,14 @@ import {
   DEMO_USER_ID,
   type AuditLogEntry,
   type AvailabilityStatus,
+  type BlockConfiguration,
+  type BlockType,
+  type BlockVisibility,
+  type ProfileBlockDraft,
   type LinkVisibility,
   type ProfileDraft,
   type ProfileLinkDraft,
+  type ProfileSectionDraft,
   type PublicProfileSnapshot,
   type ViewerContext,
   type WorkspaceSnapshot,
@@ -60,6 +73,32 @@ type ProfileLinksRow = {
   deleted_at: string | null;
 };
 
+type ProfileSectionsRow = {
+  id: string;
+  profile_id: string;
+  title: string;
+  slug: string;
+  position: number;
+  is_visible: boolean;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+type ProfileBlocksRow = {
+  id: string;
+  profile_id: string;
+  section_id: string;
+  type: BlockType;
+  title: string;
+  visibility: BlockVisibility;
+  position: number;
+  configuration: BlockConfiguration;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
 type PublicProfileSettingsRow = {
   id: string;
   profile_id: string;
@@ -75,6 +114,8 @@ type PublicProfileSettingsRow = {
   primary_cta_url: string | null;
   availability_status: AvailabilityStatus;
   published_links: unknown;
+  published_sections: unknown;
+  published_blocks: unknown;
   is_published: boolean;
   published_at: string | null;
   updated_at: string;
@@ -135,6 +176,8 @@ export function createBlankWorkspace(
   return {
     profile: createBlankProfile(ownerId),
     links: [],
+    sections: [],
+    blocks: [],
     published: null,
     auditLogs: [],
     mode,
@@ -175,6 +218,37 @@ function linkRowToDraft(row: ProfileLinksRow): ProfileLinkDraft {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function sectionRowToDraft(row: ProfileSectionsRow): ProfileSectionDraft {
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    title: row.title,
+    slug: row.slug,
+    position: row.position,
+    isVisible: row.is_visible,
+    isCollapsed: false,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function blockRowToDraft(row: ProfileBlocksRow): ProfileBlockDraft | null {
+  const parsed = profileBlockDraftSchema.safeParse({
+    id: row.id,
+    profileId: row.profile_id,
+    sectionId: row.section_id,
+    type: row.type,
+    title: row.title,
+    visibility: row.visibility,
+    position: row.position,
+    configuration: row.configuration,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  });
+
+  return parsed.success ? parsed.data : null;
 }
 
 function auditRowToEntry(row: AuditLogsRow): AuditLogEntry {
@@ -220,6 +294,8 @@ function publicRowToSnapshot(row: PublicProfileSettingsRow): PublicProfileSnapsh
     primaryCtaUrl: row.primary_cta_url ?? "",
     availabilityStatus: row.availability_status,
     publishedLinks: Array.isArray(row.published_links) ? row.published_links : [],
+    publishedSections: Array.isArray(row.published_sections) ? row.published_sections : [],
+    publishedBlocks: Array.isArray(row.published_blocks) ? row.published_blocks : [],
     publishedAt: row.published_at ?? row.updated_at,
     isPublished: row.is_published,
   };
@@ -311,6 +387,56 @@ function mapLinkInputsToRows(
   });
 }
 
+function mapSectionInputsToRows(
+  profileId: string,
+  sections: ProfileSectionDraftInput[],
+  existingSections: Array<{ id: string; created_at?: string; createdAt?: string }>,
+): ProfileSectionsRow[] {
+  const timestamp = nowIso();
+  const existingById = new Map(existingSections.map((section) => [section.id, section]));
+
+  return sortSections(sections).map((section, index) => {
+    const existing = existingById.get(section.id);
+    return {
+      id: section.id,
+      profile_id: profileId,
+      title: section.title.trim(),
+      slug: section.slug.trim().toLowerCase(),
+      position: index,
+      is_visible: section.isVisible,
+      created_at: existing?.created_at ?? existing?.createdAt ?? timestamp,
+      updated_at: timestamp,
+      deleted_at: null,
+    };
+  });
+}
+
+function mapBlockInputsToRows(
+  profileId: string,
+  blocks: ProfileBlockDraftInput[],
+  existingBlocks: Array<{ id: string; created_at?: string; createdAt?: string }>,
+): ProfileBlocksRow[] {
+  const timestamp = nowIso();
+  const existingById = new Map(existingBlocks.map((block) => [block.id, block]));
+
+  return sortBlocks(blocks).map((block, index) => {
+    const existing = existingById.get(block.id);
+    return {
+      id: block.id,
+      profile_id: profileId,
+      section_id: block.sectionId,
+      type: block.type,
+      title: block.title.trim(),
+      visibility: block.visibility,
+      position: index,
+      configuration: block.configuration,
+      created_at: existing?.created_at ?? existing?.createdAt ?? timestamp,
+      updated_at: timestamp,
+      deleted_at: null,
+    };
+  });
+}
+
 function createAuditRow(
   profileId: string,
   actorId: string,
@@ -349,7 +475,7 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
   }
 
   const profileId = profileRow.id;
-  const [linksResult, publicResult, auditResult] = await Promise.all([
+  const [linksResult, sectionsResult, blocksResult, publicResult, auditResult] = await Promise.all([
     client
       .from("profile_links")
       .select("*")
@@ -357,6 +483,20 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       .is("deleted_at", null)
       .order("position", { ascending: true })
       .order("created_at", { ascending: true }),
+    client
+      .from("profile_sections")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null)
+      .order("position", { ascending: true })
+      .limit(12),
+    client
+      .from("profile_blocks")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null)
+      .order("position", { ascending: true })
+      .limit(60),
     client
       .from("public_profile_settings")
       .select("*")
@@ -372,12 +512,18 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
   ]);
 
   const links = (linksResult.data ?? []).map(linkRowToDraft);
+  const sections = (sectionsResult.data ?? []).map(sectionRowToDraft);
+  const blocks = (blocksResult.data ?? [])
+    .map((row) => blockRowToDraft(row as ProfileBlocksRow))
+    .filter((block): block is ProfileBlockDraft => block !== null);
   const published = publicResult.data ? publicRowToSnapshot(publicResult.data) : null;
   const auditLogs = (auditResult.data ?? []).map(auditRowToEntry);
 
   return {
     profile: profileRowToDraft(profileRow),
     links,
+    sections,
+    blocks,
     published,
     auditLogs,
     mode: "authenticated",
@@ -477,10 +623,30 @@ async function persistDemoWorkspace(
     updatedAt: nowIso(),
   };
   const nextLinks = mapLinkInputsToRows(nextProfile.id, input.links, store.links);
+  const nextSections = mapSectionInputsToRows(
+    nextProfile.id,
+    input.sections,
+    store.sections,
+  ).map(sectionRowToDraft);
+  const nextBlocks = mapBlockInputsToRows(
+    nextProfile.id,
+    input.blocks,
+    store.blocks,
+  )
+    .map(blockRowToDraft)
+    .filter((block): block is ProfileBlockDraft => block !== null);
   store.profile = nextProfile;
   store.links = nextLinks.map(linkRowToDraft);
+  store.sections = nextSections;
+  store.blocks = nextBlocks;
   store.published = publish
-    ? buildPublicProfileSnapshot(nextProfile, store.links, nextProfile.updatedAt)
+    ? buildPublicProfileSnapshot(
+        nextProfile,
+        store.links,
+        nextProfile.updatedAt,
+        store.sections,
+        store.blocks,
+      )
     : store.published;
   store.auditLogs = [
     createAuditRow(
@@ -488,11 +654,13 @@ async function persistDemoWorkspace(
       nextProfile.ownerId,
       publish ? "profile_published" : "profile_saved",
       publish
-        ? `Published ${store.links.length} links`
-        : `Saved ${store.links.length} links`,
+        ? `Published ${store.links.length} links and ${store.blocks.length} blocks`
+        : `Saved ${store.links.length} links and ${store.blocks.length} blocks`,
       {
         published: publish,
         linkCount: store.links.length,
+        blockCount: store.blocks.length,
+        sectionCount: store.sections.length,
       },
     ),
     ...store.auditLogs,
@@ -624,11 +792,102 @@ async function persistSupabaseWorkspace(
     }
   }
 
+  const [{ data: existingSectionsMany }, { data: existingBlocksMany }] = await Promise.all([
+    client
+      .from("profile_sections")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null),
+    client
+      .from("profile_blocks")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null),
+  ]);
+
+  const nextSections = mapSectionInputsToRows(
+    profileId,
+    input.sections,
+    (existingSectionsMany ?? []) as ProfileSectionsRow[],
+  );
+  const { error: sectionUpsertError } = await client
+    .from("profile_sections")
+    .upsert(nextSections);
+
+  if (sectionUpsertError) {
+    return {
+      ok: false,
+      message: sectionUpsertError.message,
+      fieldErrors: {},
+    };
+  }
+
+  const nextBlocks = mapBlockInputsToRows(
+    profileId,
+    input.blocks,
+    (existingBlocksMany ?? []) as ProfileBlocksRow[],
+  );
+  const { error: blockUpsertError } = await client
+    .from("profile_blocks")
+    .upsert(nextBlocks);
+
+  if (blockUpsertError) {
+    return {
+      ok: false,
+      message: blockUpsertError.message,
+      fieldErrors: {},
+    };
+  }
+
+  const staleBlockIds = (existingBlocksMany ?? [])
+    .map((block) => block.id)
+    .filter((id) => !nextBlocks.some((block) => block.id === id));
+
+  if (staleBlockIds.length > 0) {
+    const { error: deleteError } = await client
+      .from("profile_blocks")
+      .delete()
+      .eq("profile_id", profileId)
+      .in("id", staleBlockIds);
+
+    if (deleteError) {
+      return {
+        ok: false,
+        message: deleteError.message,
+        fieldErrors: {},
+      };
+    }
+  }
+
+  const staleSectionIds = (existingSectionsMany ?? [])
+    .map((section) => section.id)
+    .filter((id) => !nextSections.some((section) => section.id === id));
+
+  if (staleSectionIds.length > 0) {
+    const { error: deleteError } = await client
+      .from("profile_sections")
+      .delete()
+      .eq("profile_id", profileId)
+      .in("id", staleSectionIds);
+
+    if (deleteError) {
+      return {
+        ok: false,
+        message: deleteError.message,
+        fieldErrors: {},
+      };
+    }
+  }
+
   if (publish) {
     const published = buildPublicProfileSnapshot(
       profileRowToDraft(profileRow),
       nextLinks.map(linkRowToDraft),
       nowIso(),
+      nextSections.map(sectionRowToDraft),
+      nextBlocks
+        .map(blockRowToDraft)
+        .filter((block): block is ProfileBlockDraft => block !== null),
     );
     const publicRow = {
       profile_id: profileId,
@@ -644,6 +903,8 @@ async function persistSupabaseWorkspace(
       primary_cta_url: profileRow.primary_cta_url,
       availability_status: profileRow.availability_status,
       published_links: published.publishedLinks,
+      published_sections: published.publishedSections,
+      published_blocks: published.publishedBlocks,
       is_published: true,
       published_at: nowIso(),
       updated_at: nowIso(),
@@ -667,11 +928,13 @@ async function persistSupabaseWorkspace(
     viewer.userId,
     publish ? "profile_published" : "profile_saved",
     publish
-      ? `Published ${nextLinks.length} links`
-      : `Saved ${nextLinks.length} links`,
+      ? `Published ${nextLinks.length} links and ${nextBlocks.length} blocks`
+      : `Saved ${nextLinks.length} links and ${nextBlocks.length} blocks`,
     {
       published: publish,
       linkCount: nextLinks.length,
+      blockCount: nextBlocks.length,
+      sectionCount: nextSections.length,
       handle: profileRow.handle,
     },
   );

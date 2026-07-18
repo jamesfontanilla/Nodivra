@@ -1,6 +1,6 @@
 # Nodivra
 
-Fresh build of Nodivra Pages, a polished public profile and workspace editor for developers.
+Fresh build of Nodivra Pages and Blocks, a polished public profile and safe, flexible page builder for developers.
 
 ## Stack
 
@@ -14,7 +14,7 @@ Fresh build of Nodivra Pages, a polished public profile and workspace editor for
 1. Copy `.env.example` to `.env.local`.
 1. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 1. Set `NEXT_PUBLIC_SITE_URL` to your local or deployed URL.
-1. Run the database migration in `database/migrations/001_nodivra_pages.sql`.
+1. Run the database migrations in order: `database/migrations/001_nodivra_pages.sql`, then `database/migrations/002_nodivra_blocks.sql`.
 1. Optionally seed demo data with `database/seed.sql`.
 
 ## Scripts
@@ -28,5 +28,7 @@ Fresh build of Nodivra Pages, a polished public profile and workspace editor for
 ## Notes
 
 - The app can run in demo mode when Supabase env vars are missing.
+- Blocks use strict typed configurations for link buttons, social links, project highlights, text, images, dividers, CTAs, availability, and external resources.
+- Public blocks are rendered from bounded published snapshots. Unsafe URLs, arbitrary HTML, JavaScript, and iframe embeds are rejected.
 - `docs/` and `.agents/` are kept in the repo as project references.
 - Generated artifacts like `node_modules/` and `.next/` are ignored.

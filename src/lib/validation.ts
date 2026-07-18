@@ -1,6 +1,7 @@
 import { z, type ZodError } from "zod";
 import {
   AVAILABILITY_STATUSES,
+  BLOCK_VISIBILITIES,
   LINK_VISIBILITIES,
   RESERVED_HANDLES,
 } from "@/types/nodivra";
@@ -127,9 +128,213 @@ export const profileLinkDraftSchema = z.object({
   position: z.number().int().min(0),
 });
 
+const blockTitle = z
+  .string()
+  .transform((value) => value.trim())
+  .refine((value) => value.length >= 1 && value.length <= 80, {
+    message: "Block title must be 1 to 80 characters.",
+  });
+
+const shortText = (max: number, message: string) =>
+  z
+    .string()
+    .transform((value) => value.trim())
+    .refine((value) => value.length <= max, { message });
+
+const requiredText = (max: number, message: string) =>
+  shortText(max, message).refine((value) => value.length > 0, {
+    message: "This field is required.",
+  });
+
+const optionalSafeHttpUrl = safeHttpUrl.default("");
+
+const technologiesSchema = z
+  .array(requiredText(28, "Technology names must be 28 characters or fewer."))
+  .max(6, "Use six technologies or fewer.");
+
+const linkButtonConfigurationSchema = z
+  .object({
+    label: requiredText(48, "Button labels must be 48 characters or fewer."),
+    url: safeHttpUrl.refine((value) => value.length > 0, {
+      message: "Button URL is required.",
+    }),
+    detail: shortText(120, "Button detail must be 120 characters or fewer."),
+    iconLabel: shortText(8, "Icon labels must be 8 characters or fewer."),
+  })
+  .strict();
+
+const socialLinkConfigurationSchema = z
+  .object({
+    network: requiredText(24, "Network names must be 24 characters or fewer."),
+    label: requiredText(40, "Social labels must be 40 characters or fewer."),
+    url: safeHttpUrl.refine((value) => value.length > 0, {
+      message: "Social URL is required.",
+    }),
+    iconLabel: shortText(8, "Icon labels must be 8 characters or fewer."),
+  })
+  .strict();
+
+const projectHighlightConfigurationSchema = z
+  .object({
+    projectName: requiredText(72, "Project names must be 72 characters or fewer."),
+    summary: requiredText(220, "Project summaries must be 220 characters or fewer."),
+    role: shortText(72, "Roles must be 72 characters or fewer."),
+    technologies: technologiesSchema,
+    url: optionalSafeHttpUrl,
+  })
+  .strict();
+
+const textSectionConfigurationSchema = z
+  .object({
+    body: requiredText(1200, "Text sections must be 1,200 characters or fewer."),
+    align: z.enum(["left", "center"]).default("left"),
+  })
+  .strict();
+
+const imageCardConfigurationSchema = z
+  .object({
+    imageUrl: safeHttpUrl.refine((value) => value.length > 0, {
+      message: "Image URL is required.",
+    }),
+    altText: requiredText(160, "Alt text must be 160 characters or fewer."),
+    caption: shortText(160, "Captions must be 160 characters or fewer."),
+  })
+  .strict();
+
+const dividerConfigurationSchema = z
+  .object({
+    style: z.enum(["line", "space"]).default("line"),
+    label: shortText(48, "Divider labels must be 48 characters or fewer."),
+  })
+  .strict();
+
+const ctaCardConfigurationSchema = z
+  .object({
+    body: requiredText(240, "CTA copy must be 240 characters or fewer."),
+    ctaLabel: requiredText(40, "CTA labels must be 40 characters or fewer."),
+    ctaUrl: safeHttpUrl.refine((value) => value.length > 0, {
+      message: "CTA URL is required.",
+    }),
+    accent: z.enum(["sand", "moss", "ink"]).default("sand"),
+  })
+  .strict();
+
+const availabilityCardConfigurationSchema = z
+  .object({
+    status: z.enum(AVAILABILITY_STATUSES).default("available"),
+    detail: requiredText(160, "Availability details must be 160 characters or fewer."),
+    timezone: requiredText(64, "Timezones must be 64 characters or fewer."),
+  })
+  .strict();
+
+const externalResourceConfigurationSchema = z
+  .object({
+    resourceType: z.enum(["article", "video", "document", "tool", "other"]).default("article"),
+    url: safeHttpUrl.refine((value) => value.length > 0, {
+      message: "Resource URL is required.",
+    }),
+    description: requiredText(220, "Resource descriptions must be 220 characters or fewer."),
+  })
+  .strict();
+
+const blockBaseSchema = {
+  id: z.string().uuid(),
+  profileId: z.string().uuid(),
+  sectionId: z.string().uuid(),
+  title: blockTitle,
+  visibility: z.enum(BLOCK_VISIBILITIES).default("public"),
+  position: z.number().int().min(0),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1),
+};
+
+export const profileBlockDraftSchema = z.union([
+  z.object({ ...blockBaseSchema, type: z.literal("link_button"), configuration: linkButtonConfigurationSchema }).strict(),
+  z.object({ ...blockBaseSchema, type: z.literal("social_link"), configuration: socialLinkConfigurationSchema }).strict(),
+  z.object({ ...blockBaseSchema, type: z.literal("project_highlight"), configuration: projectHighlightConfigurationSchema }).strict(),
+  z.object({ ...blockBaseSchema, type: z.literal("text_section"), configuration: textSectionConfigurationSchema }).strict(),
+  z.object({ ...blockBaseSchema, type: z.literal("image_card"), configuration: imageCardConfigurationSchema }).strict(),
+  z.object({ ...blockBaseSchema, type: z.literal("divider"), configuration: dividerConfigurationSchema }).strict(),
+  z.object({ ...blockBaseSchema, type: z.literal("cta_card"), configuration: ctaCardConfigurationSchema }).strict(),
+  z.object({ ...blockBaseSchema, type: z.literal("availability_card"), configuration: availabilityCardConfigurationSchema }).strict(),
+  z.object({ ...blockBaseSchema, type: z.literal("external_resource"), configuration: externalResourceConfigurationSchema }).strict(),
+]);
+
+const publicBlockBaseSchema = {
+  id: z.string().uuid(),
+  sectionId: z.string().uuid(),
+  title: blockTitle,
+  visibility: z.enum(BLOCK_VISIBILITIES),
+  position: z.number().int().min(0),
+};
+
+export const publicBlockSnapshotSchema = z.union([
+  z.object({ ...publicBlockBaseSchema, type: z.literal("link_button"), configuration: linkButtonConfigurationSchema }).strict(),
+  z.object({ ...publicBlockBaseSchema, type: z.literal("social_link"), configuration: socialLinkConfigurationSchema }).strict(),
+  z.object({ ...publicBlockBaseSchema, type: z.literal("project_highlight"), configuration: projectHighlightConfigurationSchema }).strict(),
+  z.object({ ...publicBlockBaseSchema, type: z.literal("text_section"), configuration: textSectionConfigurationSchema }).strict(),
+  z.object({ ...publicBlockBaseSchema, type: z.literal("image_card"), configuration: imageCardConfigurationSchema }).strict(),
+  z.object({ ...publicBlockBaseSchema, type: z.literal("divider"), configuration: dividerConfigurationSchema }).strict(),
+  z.object({ ...publicBlockBaseSchema, type: z.literal("cta_card"), configuration: ctaCardConfigurationSchema }).strict(),
+  z.object({ ...publicBlockBaseSchema, type: z.literal("availability_card"), configuration: availabilityCardConfigurationSchema }).strict(),
+  z.object({ ...publicBlockBaseSchema, type: z.literal("external_resource"), configuration: externalResourceConfigurationSchema }).strict(),
+]);
+
+export const profileSectionDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    title: requiredText(48, "Section titles must be 48 characters or fewer."),
+    slug: z
+      .string()
+      .transform((value) => value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, ""))
+      .refine((value) => value.length >= 1 && value.length <= 48, {
+        message: "Section slugs must be 1 to 48 characters.",
+      }),
+    position: z.number().int().min(0),
+    isVisible: z.boolean().default(true),
+    isCollapsed: z.boolean().default(false),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict();
+
 export const workspaceDraftSchema = z.object({
   profile: profileDraftSchema,
   links: z.array(profileLinkDraftSchema).max(30),
+  sections: z.array(profileSectionDraftSchema).max(12).default([]),
+  blocks: z.array(profileBlockDraftSchema).max(60).default([]),
+}).superRefine((data, context) => {
+  const sectionIds = new Set<string>();
+  for (const [index, section] of data.sections.entries()) {
+    if (sectionIds.has(section.id)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Section IDs must be unique.",
+        path: ["sections", index, "id"],
+      });
+    }
+    sectionIds.add(section.id);
+  }
+
+  const blockIds = new Set<string>();
+  for (const [index, block] of data.blocks.entries()) {
+    if (blockIds.has(block.id)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Block IDs must be unique.",
+        path: ["blocks", index, "id"],
+      });
+    }
+    blockIds.add(block.id);
+    if (!sectionIds.has(block.sectionId)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Every block must belong to an existing section.",
+        path: ["blocks", index, "sectionId"],
+      });
+    }
+  }
 });
 
 export const publishWorkspaceSchema = workspaceDraftSchema;
@@ -158,12 +363,21 @@ export const publicProfileSnapshotSchema = z.object({
   primaryCtaUrl: z.string(),
   availabilityStatus: z.enum(AVAILABILITY_STATUSES),
   publishedLinks: z.array(publicLinkSnapshotSchema),
+  publishedSections: z.array(z.object({
+    id: z.string().uuid(),
+    title: z.string(),
+    slug: z.string(),
+    position: z.number().int().min(0),
+  }).strict()).default([]),
+  publishedBlocks: z.array(publicBlockSnapshotSchema).default([]),
   publishedAt: z.string(),
   isPublished: z.boolean(),
 });
 
 export type ProfileDraftInput = z.infer<typeof profileDraftSchema>;
 export type ProfileLinkDraftInput = z.infer<typeof profileLinkDraftSchema>;
+export type ProfileSectionDraftInput = z.infer<typeof profileSectionDraftSchema>;
+export type ProfileBlockDraftInput = z.infer<typeof profileBlockDraftSchema>;
 export type WorkspaceDraftInput = z.infer<typeof workspaceDraftSchema>;
 export type PublicLinkSnapshotInput = z.infer<typeof publicLinkSnapshotSchema>;
 export type PublicProfileSnapshotInput = z.infer<typeof publicProfileSnapshotSchema>;
