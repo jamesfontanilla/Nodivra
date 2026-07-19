@@ -92,7 +92,7 @@ export function buildPublicNoteMetadata(
       description,
       url: canonical,
       siteName,
-      type: "article",
+      type: "article" as const,
       ...(note.coverImageUrl ? { images: [{ url: note.coverImageUrl, alt: note.title }] } : {}),
       publishedTime: note.publishedAt ? `${note.publishedAt}T00:00:00.000Z` : undefined,
       tags: note.tags,
