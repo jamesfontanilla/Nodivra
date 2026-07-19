@@ -18,7 +18,6 @@ import {
   profileDraftSchema,
   projectDraftSchema,
   repositoryDraftSchema,
-  stackCategoryDraftSchema,
   stackItemDraftSchema,
   publicProfileSnapshotSchema,
   toFieldErrors,
