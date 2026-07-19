@@ -34,6 +34,7 @@ export const BLOCK_TYPES = [
   "cta_card",
   "availability_card",
   "external_resource",
+  "note_highlight",
 ] as const;
 
 export type BlockType = (typeof BLOCK_TYPES)[number];
@@ -104,6 +105,13 @@ export interface ExternalResourceConfiguration {
   description: string;
 }
 
+export interface NoteHighlightConfiguration {
+  noteId: string;
+  title: string;
+  excerpt: string;
+  url: string;
+}
+
 export type BlockConfiguration =
   | LinkButtonConfiguration
   | SocialLinkConfiguration
@@ -113,7 +121,8 @@ export type BlockConfiguration =
   | DividerConfiguration
   | CtaCardConfiguration
   | AvailabilityCardConfiguration
-  | ExternalResourceConfiguration;
+  | ExternalResourceConfiguration
+  | NoteHighlightConfiguration;
 
 export const PROJECT_TYPES = [
   "product",
@@ -483,6 +492,69 @@ export interface PublicPathEntrySnapshot {
   position: number;
 }
 
+export const NOTE_LINK_KINDS = ["project", "website", "repository", "resource"] as const;
+export type NoteLinkKind = (typeof NOTE_LINK_KINDS)[number];
+
+export interface NoteLinkDraft {
+  id: string;
+  profileId: string;
+  noteId: string;
+  kind: NoteLinkKind;
+  projectId: string;
+  label: string;
+  url: string;
+  position: number;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfileNoteDraft {
+  id: string;
+  profileId: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  bodyMarkdown: string;
+  coverImageUrl: string;
+  tags: string[];
+  publishedAt: string;
+  readingTimeText: string;
+  canonicalUrl: string;
+  isPublished: boolean;
+  isFeatured: boolean;
+  position: number;
+  links: NoteLinkDraft[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublicNoteLinkSnapshot {
+  id: string;
+  kind: NoteLinkKind;
+  projectId: string;
+  label: string;
+  url: string;
+  position: number;
+  isEnabled: boolean;
+}
+
+export interface PublicNoteSnapshot {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  bodyMarkdown: string;
+  coverImageUrl: string;
+  tags: string[];
+  publishedAt: string;
+  readingTimeText: string;
+  canonicalUrl: string;
+  isFeatured: boolean;
+  position: number;
+  links: PublicNoteLinkSnapshot[];
+}
+
 export interface PublicStackCategorySnapshot {
   id: string;
   key: StackCategoryKey;
@@ -630,6 +702,7 @@ export interface PublicProfileSnapshot {
   publishedStackCategories: PublicStackCategorySnapshot[];
   publishedStackItems: PublicStackItemSnapshot[];
   publishedPathEntries: PublicPathEntrySnapshot[];
+  publishedNotes: PublicNoteSnapshot[];
   publishedAt: string;
   isPublished: boolean;
 }
@@ -656,6 +729,7 @@ export interface WorkspaceSnapshot {
   stackCategories: ProfileStackCategoryDraft[];
   stackItems: ProfileStackItemDraft[];
   pathEntries: ProfilePathEntryDraft[];
+  notes: ProfileNoteDraft[];
   published: PublicProfileSnapshot | null;
   auditLogs: AuditLogEntry[];
   mode: "demo" | "authenticated" | "anonymous";

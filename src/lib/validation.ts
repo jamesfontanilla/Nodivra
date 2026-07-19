@@ -16,6 +16,7 @@ import {
   PATH_DATE_VISIBILITIES,
   PATH_ENTRY_TYPES,
   PATH_LINK_KINDS,
+  NOTE_LINK_KINDS,
 } from "@/types/nodivra";
 
 const handlePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -253,6 +254,15 @@ const externalResourceConfigurationSchema = z
   })
   .strict();
 
+const noteHighlightConfigurationSchema = z
+  .object({
+    noteId: z.string().uuid(),
+    title: requiredText(72, "Note titles must be 72 characters or fewer."),
+    excerpt: requiredText(280, "Note excerpts must be 280 characters or fewer."),
+    url: optionalSafeHttpUrl,
+  })
+  .strict();
+
 const blockBaseSchema = {
   id: z.string().uuid(),
   profileId: z.string().uuid(),
@@ -274,6 +284,7 @@ export const profileBlockDraftSchema = z.union([
   z.object({ ...blockBaseSchema, type: z.literal("cta_card"), configuration: ctaCardConfigurationSchema }).strict(),
   z.object({ ...blockBaseSchema, type: z.literal("availability_card"), configuration: availabilityCardConfigurationSchema }).strict(),
   z.object({ ...blockBaseSchema, type: z.literal("external_resource"), configuration: externalResourceConfigurationSchema }).strict(),
+  z.object({ ...blockBaseSchema, type: z.literal("note_highlight"), configuration: noteHighlightConfigurationSchema }).strict(),
 ]);
 
 const publicBlockBaseSchema = {
@@ -294,6 +305,7 @@ export const publicBlockSnapshotSchema = z.union([
   z.object({ ...publicBlockBaseSchema, type: z.literal("cta_card"), configuration: ctaCardConfigurationSchema }).strict(),
   z.object({ ...publicBlockBaseSchema, type: z.literal("availability_card"), configuration: availabilityCardConfigurationSchema }).strict(),
   z.object({ ...publicBlockBaseSchema, type: z.literal("external_resource"), configuration: externalResourceConfigurationSchema }).strict(),
+  z.object({ ...publicBlockBaseSchema, type: z.literal("note_highlight"), configuration: noteHighlightConfigurationSchema }).strict(),
 ]);
 
 export const profileSectionDraftSchema = z
@@ -774,6 +786,85 @@ export const pathEntryDraftSchema = z
     }
   });
 
+const noteDate = z
+  .string()
+  .transform((value) => value.trim())
+  .refine((value) => {
+    if (!value) return true;
+    if (!pathDatePattern.test(value)) return false;
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  }, { message: "Use a valid publication date in YYYY-MM-DD format." });
+
+const noteLinkDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    noteId: z.string().uuid(),
+    kind: z.enum(NOTE_LINK_KINDS),
+    projectId: z.string().uuid().or(z.literal("")),
+    label: requiredText(72, "Note link labels must be 72 characters or fewer."),
+    url: safeHttpUrl,
+    position: z.number().int().min(0),
+    isEnabled: z.boolean().default(true),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict()
+  .superRefine((data, context) => {
+    if (data.kind === "project") {
+      if (!data.projectId) context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose a related project.", path: ["projectId"] });
+      if (data.url) context.addIssue({ code: z.ZodIssueCode.custom, message: "Project links use the internal project route.", path: ["url"] });
+    } else {
+      if (!data.url) context.addIssue({ code: z.ZodIssueCode.custom, message: "Note link URL is required.", path: ["url"] });
+      if (data.projectId) context.addIssue({ code: z.ZodIssueCode.custom, message: "External Note links cannot reference a project.", path: ["projectId"] });
+    }
+  });
+
+export const noteDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    title: requiredText(96, "Note titles must be 96 characters or fewer."),
+    slug: z
+      .string()
+      .transform((value) => value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, ""))
+      .refine((value) => value.length >= 1 && value.length <= 96, { message: "Note slugs must be 1 to 96 characters." }),
+    excerpt: requiredText(280, "Note excerpts must be 280 characters or fewer."),
+    bodyMarkdown: requiredText(16000, "Note bodies must be 16,000 characters or fewer.")
+      .refine((value) => !/<[^>]+>|(?:javascript|data):/i.test(value), { message: "Notes cannot contain HTML, scripts, or unsafe embeds." }),
+    coverImageUrl: safeHttpUrl.default(""),
+    tags: z.array(requiredText(32, "Note tags must be 32 characters or fewer.")).max(8, "Use eight tags or fewer."),
+    publishedAt: noteDate,
+    readingTimeText: shortText(32, "Reading-time text must be 32 characters or fewer."),
+    canonicalUrl: safeHttpUrl.default(""),
+    isPublished: z.boolean().default(false),
+    isFeatured: z.boolean().default(false),
+    position: z.number().int().min(0),
+    links: z.array(noteLinkDraftSchema).max(4),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict()
+  .superRefine((data, context) => {
+    if (data.isPublished && !data.publishedAt) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Published notes need a publication date.", path: ["publishedAt"] });
+    }
+    if (data.isFeatured && !data.isPublished) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Only published notes can be featured.", path: ["isFeatured"] });
+    }
+    const linkIds = new Set<string>();
+    for (const [index, link] of data.links.entries()) {
+      if (link.profileId !== data.profileId || link.noteId !== data.id) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Note links must belong to their note.", path: ["links", index] });
+      }
+      if (linkIds.has(link.id)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Note link IDs must be unique.", path: ["links", index, "id"] });
+      }
+      linkIds.add(link.id);
+    }
+  });
+
 export const workspaceDraftSchema = z.object({
   profile: profileDraftSchema,
   links: z.array(profileLinkDraftSchema).max(30),
@@ -784,6 +875,7 @@ export const workspaceDraftSchema = z.object({
   stackCategories: z.array(stackCategoryDraftSchema).max(20).default([]),
   stackItems: z.array(stackItemDraftSchema).max(60).default([]),
   pathEntries: z.array(pathEntryDraftSchema).max(40).default([]),
+  notes: z.array(noteDraftSchema).max(40).default([]),
 }).superRefine((data, context) => {
   const sectionIds = new Set<string>();
   for (const [index, section] of data.sections.entries()) {
@@ -977,6 +1069,29 @@ export const workspaceDraftSchema = z.object({
     }
     pathEntryIds.add(entry.id);
   }
+  const noteIds = new Set<string>();
+  const noteSlugs = new Set<string>();
+  const workspaceProjectIds = new Set(data.projects.map((project) => project.id));
+  let featuredNoteCount = 0;
+  for (const [index, note] of data.notes.entries()) {
+    if (noteIds.has(note.id)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Note IDs must be unique.", path: ["notes", index, "id"] });
+    }
+    if (noteSlugs.has(note.slug)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Note slugs must be unique.", path: ["notes", index, "slug"] });
+    }
+    if (data.profile.id && note.profileId !== data.profile.id) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Notes must belong to the current profile.", path: ["notes", index, "profileId"] });
+    }
+    if (note.isFeatured) featuredNoteCount += 1;
+    for (const [linkIndex, link] of note.links.entries()) {
+      if (link.kind === "project" && !workspaceProjectIds.has(link.projectId)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Note project links must reference a project in this workspace.", path: ["notes", index, "links", linkIndex, "projectId"] });
+      }
+    }
+    noteIds.add(note.id);
+    noteSlugs.add(note.slug);
+  }
   if (featuredStackCount > 6) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose six featured technologies or fewer.", path: ["stackItems"] });
   }
@@ -986,6 +1101,9 @@ export const workspaceDraftSchema = z.object({
         context.addIssue({ code: z.ZodIssueCode.custom, message: "Stack project links must belong to the current profile and item.", path: ["stackItems", index, "projects", projectIndex] });
       }
     }
+  }
+  if (featuredNoteCount > 3) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose three featured notes or fewer.", path: ["notes"] });
   }
 });
 
@@ -1144,6 +1262,29 @@ export const publicProfileSnapshotSchema = z.object({
     }).strict()),
     position: z.number().int().min(0),
   }).strict()).default([]),
+  publishedNotes: z.array(z.object({
+    id: z.string().uuid(),
+    title: z.string(),
+    slug: z.string(),
+    excerpt: z.string(),
+    bodyMarkdown: z.string(),
+    coverImageUrl: safeHttpUrl,
+    tags: z.array(z.string()),
+    publishedAt: z.string(),
+    readingTimeText: z.string(),
+    canonicalUrl: safeHttpUrl,
+    isFeatured: z.boolean(),
+    position: z.number().int().min(0),
+    links: z.array(z.object({
+      id: z.string().uuid(),
+      kind: z.enum(NOTE_LINK_KINDS),
+      projectId: z.string().uuid().or(z.literal("")),
+      label: z.string(),
+      url: safeHttpUrl,
+      position: z.number().int().min(0),
+      isEnabled: z.boolean(),
+    }).strict()),
+  }).strict()).default([]),
   publishedAt: z.string(),
   isPublished: z.boolean(),
 });
@@ -1157,6 +1298,7 @@ export type ProfileRepositoryDraftInput = z.infer<typeof repositoryDraftSchema>;
 export type ProfileStackCategoryDraftInput = z.infer<typeof stackCategoryDraftSchema>;
 export type ProfileStackItemDraftInput = z.infer<typeof stackItemDraftSchema>;
 export type ProfilePathEntryDraftInput = z.infer<typeof pathEntryDraftSchema>;
+export type ProfileNoteDraftInput = z.infer<typeof noteDraftSchema>;
 export type WorkspaceDraftInput = z.infer<typeof workspaceDraftSchema>;
 export type PublicLinkSnapshotInput = z.infer<typeof publicLinkSnapshotSchema>;
 export type PublicProfileSnapshotInput = z.infer<typeof publicProfileSnapshotSchema>;

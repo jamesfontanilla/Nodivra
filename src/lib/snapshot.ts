@@ -7,7 +7,9 @@ import {
   type ProfileStackCategoryDraft,
   type ProfileStackItemDraft,
   type ProfilePathEntryDraft,
+  type ProfileNoteDraft,
   type ProfileSectionDraft,
+  type NoteHighlightConfiguration,
   type PublicBlockSnapshot,
   type PublicLinkSnapshot,
   type PublicProjectSnapshot,
@@ -15,6 +17,7 @@ import {
   type PublicStackCategorySnapshot,
   type PublicStackItemSnapshot,
   type PublicPathEntrySnapshot,
+  type PublicNoteSnapshot,
   type PublicProfileSnapshot,
   type PublicSectionSnapshot,
 } from "@/types/nodivra";
@@ -62,6 +65,12 @@ type SortableStackItem = {
 };
 
 type SortablePathEntry = {
+  id: string;
+  position: number;
+  createdAt?: string;
+};
+
+type SortableNote = {
   id: string;
   position: number;
   createdAt?: string;
@@ -157,6 +166,14 @@ export function sortPathEntries<T extends SortablePathEntry>(entries: T[]) {
   });
 }
 
+export function sortNotes<T extends SortableNote>(notes: T[]) {
+  return [...notes].sort((left, right) => {
+    if (left.position !== right.position) return left.position - right.position;
+    if (left.createdAt && right.createdAt && left.createdAt !== right.createdAt) return left.createdAt.localeCompare(right.createdAt);
+    return left.id.localeCompare(right.id);
+  });
+}
+
 export function toPublicLinks(links: ProfileLinkDraft[]) {
   return sortLinks(links)
     .filter((link) => link.isEnabled && link.visibility !== "hidden")
@@ -182,14 +199,16 @@ export function buildPublicProfileSnapshot(
   stackCategories: ProfileStackCategoryDraft[] = [],
   stackItems: ProfileStackItemDraft[] = [],
   pathEntries: ProfilePathEntryDraft[] = [],
+  notes: ProfileNoteDraft[] = [],
 ): PublicProfileSnapshot {
   const publishedSections = toPublicSections(sections);
-  const publishedBlocks = toPublicBlocks(blocks, publishedSections);
   const publishedProjects = toPublicProjects(projects);
   const publishedRepositories = toPublicRepositories(repositories);
   const publishedStackCategories = toPublicStackCategories(stackCategories, stackItems);
   const publishedStackItems = toPublicStackItems(stackItems, stackCategories, publishedProjects);
   const publishedPathEntries = toPublicPathEntries(pathEntries, publishedProjects);
+  const publishedNotes = toPublicNotes(notes, publishedProjects);
+  const publishedBlocks = toPublicBlocks(blocks, publishedSections, publishedNotes);
 
   return {
     profileId: profile.id,
@@ -212,9 +231,45 @@ export function buildPublicProfileSnapshot(
     publishedStackCategories,
     publishedStackItems,
     publishedPathEntries,
+    publishedNotes,
     publishedAt,
     isPublished: true,
   };
+}
+
+export function toPublicNotes(
+  notes: ProfileNoteDraft[],
+  projects: PublicProjectSnapshot[],
+) {
+  const publishedProjectIds = new Set(projects.map((project) => project.id));
+  return sortNotes(notes)
+    .filter((note) => note.isPublished)
+    .map<PublicNoteSnapshot>((note) => ({
+      id: note.id,
+      title: note.title,
+      slug: note.slug,
+      excerpt: note.excerpt,
+      bodyMarkdown: note.bodyMarkdown,
+      coverImageUrl: note.coverImageUrl,
+      tags: note.tags,
+      publishedAt: note.publishedAt,
+      readingTimeText: note.readingTimeText,
+      canonicalUrl: note.canonicalUrl,
+      isFeatured: note.isFeatured,
+      position: note.position,
+      links: [...note.links]
+        .filter((link) => link.isEnabled && (link.kind !== "project" || publishedProjectIds.has(link.projectId)))
+        .sort((left, right) => left.position - right.position)
+        .map((link) => ({
+          id: link.id,
+          kind: link.kind,
+          projectId: link.projectId,
+          label: link.label,
+          url: link.url,
+          position: link.position,
+          isEnabled: link.isEnabled,
+        })),
+    }));
 }
 
 function publicPathDate(value: string, visibility: ProfilePathEntryDraft["dateVisibility"]) {
@@ -410,19 +465,36 @@ export function toPublicSections(sections: ProfileSectionDraft[]) {
 export function toPublicBlocks(
   blocks: ProfileBlockDraft[],
   sections: PublicSectionSnapshot[],
+  notes: PublicNoteSnapshot[] = [],
 ) {
   const visibleSectionIds = new Set(sections.map((section) => section.id));
+  const publishedNoteIds = new Set(notes.map((note) => note.id));
   return sortBlocks(blocks)
-    .filter((block) => block.visibility === "public" && visibleSectionIds.has(block.sectionId))
-    .map<PublicBlockSnapshot>((block) => ({
-      id: block.id,
-      sectionId: block.sectionId,
-      type: block.type,
-      title: block.title,
-      visibility: block.visibility,
-      position: block.position,
-      configuration: block.configuration,
-    }));
+    .filter((block) => block.visibility === "public" && visibleSectionIds.has(block.sectionId) && (block.type !== "note_highlight" || publishedNoteIds.has((block.configuration as NoteHighlightConfiguration).noteId)))
+    .map<PublicBlockSnapshot>((block) => {
+      let configuration = block.configuration;
+      if (block.type === "note_highlight") {
+        const noteConfiguration = block.configuration as NoteHighlightConfiguration;
+        const note = notes.find((candidate) => candidate.id === noteConfiguration.noteId);
+        if (note) {
+          configuration = {
+            ...block.configuration,
+            title: note.title,
+            excerpt: note.excerpt,
+            url: note.canonicalUrl,
+          };
+        }
+      }
+      return {
+        id: block.id,
+        sectionId: block.sectionId,
+        type: block.type,
+        title: block.title,
+        visibility: block.visibility,
+        position: block.position,
+        configuration,
+      };
+    });
 }
 
 export function splitVisibleLinks(links: PublicLinkSnapshot[]) {

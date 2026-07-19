@@ -10,6 +10,8 @@ import {
   type ProfileStackCategoryDraft,
   type ProfileStackItemDraft,
   type ProfilePathEntryDraft,
+  type ProfileNoteDraft,
+  type NoteLinkDraft,
   type PathHighlightDraft,
   type PathTechnologyDraft,
   type PathLinkDraft,
@@ -764,6 +766,82 @@ function createDemoPathEntries(profileId: string): ProfilePathEntryDraft[] {
   ];
 }
 
+function createDemoNotes(profileId: string): ProfileNoteDraft[] {
+  const timestamp = now();
+  const link = (id: string, noteId: string, kind: NoteLinkDraft["kind"], label: string, projectId: string, url: string, position: number): NoteLinkDraft => ({
+    id,
+    profileId,
+    noteId,
+    kind,
+    projectId,
+    label,
+    url,
+    position,
+    isEnabled: true,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  return [
+    {
+      id: "ac0f8f13-0c2b-4b0e-9001-000000000001",
+      profileId,
+      title: "The quiet power of a smaller surface",
+      slug: "the-quiet-power-of-a-smaller-surface",
+      excerpt: "A short field note on why fewer choices can make a developer profile more useful, memorable, and honest.",
+      bodyMarkdown: "## The premise\n\nA profile does not need to prove everything at once. It needs to make the right next question easy to ask.\n\n- Show the work\n- Name the choices\n- Leave room for curiosity\n\n> Clarity is a form of hospitality.",
+      coverImageUrl: "",
+      tags: ["design", "systems", "writing"],
+      publishedAt: "2026-07-12",
+      readingTimeText: "4 min read",
+      canonicalUrl: "",
+      isPublished: true,
+      isFeatured: true,
+      position: 0,
+      links: [link("bc0f8f13-0c2b-4b0e-9001-000000000001", "ac0f8f13-0c2b-4b0e-9001-000000000001", "project", "Read the Signal case study", "4c0f8f13-0c2b-4b0e-9001-000000000001", "", 0)],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "ac0f8f13-0c2b-4b0e-9001-000000000002",
+      profileId,
+      title: "Notes from a manual data model",
+      slug: "notes-from-a-manual-data-model",
+      excerpt: "What changes when a portfolio treats its content as a small, deliberate product instead of a pile of fields.",
+      bodyMarkdown: "## Start with the nouns\n\nProjects, notes, links, and timelines are not just UI concerns. They are the vocabulary of the person behind the profile.\n\nThe useful constraint is not automation. It is giving each piece a clear home and a safe way to travel.",
+      coverImageUrl: "",
+      tags: ["architecture", "supabase", "product"],
+      publishedAt: "2026-07-05",
+      readingTimeText: "3 min read",
+      canonicalUrl: "",
+      isPublished: true,
+      isFeatured: false,
+      position: 1,
+      links: [link("bc0f8f13-0c2b-4b0e-9001-000000000002", "ac0f8f13-0c2b-4b0e-9001-000000000002", "website", "Supabase documentation", "", "https://supabase.com/docs", 0)],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "ac0f8f13-0c2b-4b0e-9001-000000000003",
+      profileId,
+      title: "A draft about the next useful question",
+      slug: "a-draft-about-the-next-useful-question",
+      excerpt: "A private draft that demonstrates the difference between writing and publishing.",
+      bodyMarkdown: "This is still being shaped.",
+      coverImageUrl: "",
+      tags: ["draft"],
+      publishedAt: "",
+      readingTimeText: "2 min read",
+      canonicalUrl: "",
+      isPublished: false,
+      isFeatured: false,
+      position: 2,
+      links: [],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ];
+}
+
 function createAuditLogs(profileId: string): AuditLogEntry[] {
   const timestamp = now();
   return [
@@ -793,6 +871,7 @@ function createDemoStore(): WorkspaceSnapshot {
   const stackCategories = createDemoStackCategories(profile.id);
   const stackItems = createDemoStackItems(profile.id);
   const pathEntries = createDemoPathEntries(profile.id);
+  const notes = createDemoNotes(profile.id);
   return {
     profile,
     links,
@@ -803,6 +882,7 @@ function createDemoStore(): WorkspaceSnapshot {
     stackCategories,
     stackItems,
     pathEntries,
+    notes,
     published: buildPublicProfileSnapshot(
       profile,
       links,
@@ -814,6 +894,7 @@ function createDemoStore(): WorkspaceSnapshot {
       stackCategories,
       stackItems,
       pathEntries,
+      notes,
     ),
     auditLogs: createAuditLogs(profile.id),
     mode: "demo",
@@ -854,6 +935,7 @@ export function getDemoWorkspaceSnapshot(): WorkspaceSnapshot {
     stackCategories: structuredClone(store.stackCategories),
     stackItems: structuredClone(store.stackItems),
     pathEntries: structuredClone(store.pathEntries),
+    notes: structuredClone(store.notes),
     published: structuredClone(store.published),
     auditLogs: structuredClone(store.auditLogs),
     mode: "demo",

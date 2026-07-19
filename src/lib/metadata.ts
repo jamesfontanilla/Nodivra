@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getSiteUrl, siteName, siteTagline } from "@/lib/site";
 import type { PublicProfileSnapshot } from "@/types/nodivra";
 import type { PublicProjectSnapshot } from "@/types/nodivra";
+import type { PublicNoteSnapshot } from "@/types/nodivra";
 
 function buildDescription(profile?: PublicProfileSnapshot | null) {
   if (profile?.headline) {
@@ -71,6 +72,36 @@ export function buildPublicProjectMetadata(
       title,
       description,
       ...(project.coverImageUrl ? { images: [project.coverImageUrl] } : {}),
+    },
+  };
+}
+
+export function buildPublicNoteMetadata(
+  profile: PublicProfileSnapshot,
+  note: PublicNoteSnapshot,
+): Metadata {
+  const title = `${note.title} · ${profile.displayName} · ${siteName}`;
+  const description = note.excerpt || buildDescription(profile);
+  const canonical = note.canonicalUrl || new URL(`/u/${profile.handle}/notes/${note.slug}`, getSiteUrl()).toString();
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      siteName,
+      type: "article",
+      ...(note.coverImageUrl ? { images: [{ url: note.coverImageUrl, alt: note.title }] } : {}),
+      publishedTime: note.publishedAt ? `${note.publishedAt}T00:00:00.000Z` : undefined,
+      tags: note.tags,
+    },
+    twitter: {
+      card: note.coverImageUrl ? "summary_large_image" : "summary",
+      title,
+      description,
+      ...(note.coverImageUrl ? { images: [note.coverImageUrl] } : {}),
     },
   };
 }

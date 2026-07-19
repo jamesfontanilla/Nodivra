@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PublicBlocks } from "@/components/public-blocks";
 import { draftToPublicProject } from "@/components/project-detail";
+import { draftToPublicNote } from "@/components/note-detail";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -21,6 +22,8 @@ import type {
   ExternalResourceConfiguration,
   ImageCardConfiguration,
   LinkButtonConfiguration,
+  NoteHighlightConfiguration,
+  ProfileNoteDraft,
   ProfileBlockDraft,
   ProfileProjectDraft,
   ProfileSectionDraft,
@@ -48,6 +51,7 @@ const BLOCK_TYPE_OPTIONS: Array<{ value: BlockType; label: string; note: string 
   { value: "cta_card", label: "Call to action", note: "A considered next step." },
   { value: "availability_card", label: "Availability", note: "A current working signal." },
   { value: "external_resource", label: "External resource", note: "A safe, embed-free reference." },
+  { value: "note_highlight", label: "Note highlight", note: "A published writing piece." },
 ];
 
 function createId() {
@@ -107,6 +111,8 @@ function defaultConfiguration(type: BlockType): BlockConfiguration {
       return { status: "available", detail: "Share the working context you want people to know.", timezone: "UTC" } satisfies AvailabilityCardConfiguration;
     case "external_resource":
       return { resourceType: "article", url: "https://example.com", description: "Explain why this resource is worth opening." } satisfies ExternalResourceConfiguration;
+    case "note_highlight":
+      return { noteId: "00000000-0000-4000-8000-000000000000", title: "A note worth opening", excerpt: "A short introduction to the idea behind this note.", url: "" } satisfies NoteHighlightConfiguration;
   }
 }
 
@@ -135,10 +141,12 @@ function BlockConfigurationFields({
   block,
   onChange,
   projects,
+  notes,
 }: {
   block: ProfileBlockDraft;
   onChange: (key: string, value: unknown) => void;
   projects: ProfileProjectDraft[];
+  notes: ProfileNoteDraft[];
 }) {
   const config = block.configuration;
   switch (block.type) {
@@ -241,6 +249,20 @@ function BlockConfigurationFields({
         </div>
       );
     }
+    case "note_highlight": {
+      const value = config as NoteHighlightConfiguration;
+      return (
+        <div className="space-y-4">
+          <FieldShell label="Published note" hint="Only published notes appear publicly.">
+            <Select value={value.noteId} onChange={(event) => onChange("noteId", event.target.value)}>
+              <option value="">Choose a note</option>
+              {notes.filter((note) => note.isPublished).map((note) => <option key={note.id} value={note.id}>{note.title}</option>)}
+            </Select>
+          </FieldShell>
+          <p className="text-xs leading-6 text-sand-300/65">The title and excerpt follow the selected note when it is published.</p>
+        </div>
+      );
+    }
   }
 }
 
@@ -249,6 +271,7 @@ export function BlocksEditor({
   sections,
   blocks,
   projects,
+  notes,
   onChange,
   fieldErrors,
 }: {
@@ -256,6 +279,7 @@ export function BlocksEditor({
   sections: ProfileSectionDraft[];
   blocks: ProfileBlockDraft[];
   projects: ProfileProjectDraft[];
+  notes: ProfileNoteDraft[];
   onChange: (sections: ProfileSectionDraft[], blocks: ProfileBlockDraft[]) => void;
   fieldErrors: Record<string, string>;
 }) {
@@ -372,7 +396,8 @@ export function BlocksEditor({
   }
 
   const previewSections = toPublicSections(sections);
-  const previewBlocks = toPublicBlocks(blocks, previewSections);
+  const previewNotes = notes.filter((note) => note.isPublished).map(draftToPublicNote);
+  const previewBlocks = toPublicBlocks(blocks, previewSections, previewNotes);
   const selectedBlock = blocks.find((block) => block.id === selectedBlockId) ?? null;
 
   return (
@@ -400,7 +425,7 @@ export function BlocksEditor({
         <div className="rounded-[2rem] bg-white/5 p-1.5 ring-1 ring-white/10">
           <div className="rounded-[1.625rem] bg-ink-950/88 px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:px-6">
             <div className="mb-3 flex items-center justify-between gap-4"><p className="text-xs uppercase tracking-[0.2em] text-sand-300/70">Block preview</p><Badge tone="muted">Draft only</Badge></div>
-            {previewSections.length > 0 && previewBlocks.length > 0 ? <PublicBlocks sections={previewSections} blocks={previewBlocks} projects={projects.map(draftToPublicProject)} /> : <EmptyState title="Nothing visible yet" description="Add a section and a public block to see the composition here." />}
+            {previewSections.length > 0 && previewBlocks.length > 0 ? <PublicBlocks sections={previewSections} blocks={previewBlocks} projects={projects.map(draftToPublicProject)} notes={previewNotes} /> : <EmptyState title="Nothing visible yet" description="Add a section and a public block to see the composition here." />}
           </div>
         </div>
       ) : null}
@@ -499,7 +524,7 @@ export function BlocksEditor({
                   <FieldShell label="Block title" hint="1 to 80 characters.">
                     <Input value={selectedBlock.title} onChange={(event) => patchBlock(selectedBlock.id, "title", event.target.value)} />
                   </FieldShell>
-                  <BlockConfigurationFields block={selectedBlock} projects={projects} onChange={(key, value) => patchConfiguration(selectedBlock.id, key, value)} />
+                  <BlockConfigurationFields block={selectedBlock} projects={projects} notes={notes} onChange={(key, value) => patchConfiguration(selectedBlock.id, key, value)} />
                 </div>
               </div>
             ) : (

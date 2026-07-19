@@ -10,6 +10,7 @@ import {
   sortStackCategories,
   sortStackItems,
   sortPathEntries,
+  sortNotes,
   sortSections,
 } from "@/lib/snapshot";
 import {
@@ -21,6 +22,7 @@ import {
   repositoryDraftSchema,
   stackItemDraftSchema,
   pathEntryDraftSchema,
+  noteDraftSchema,
   publicProfileSnapshotSchema,
   toFieldErrors,
   workspaceDraftSchema,
@@ -32,6 +34,7 @@ import {
   type ProfileStackCategoryDraftInput,
   type ProfileStackItemDraftInput,
   type ProfilePathEntryDraftInput,
+  type ProfileNoteDraftInput,
   type ProfileSectionDraftInput,
   type WorkspaceDraftInput,
 } from "@/lib/validation";
@@ -56,6 +59,9 @@ import {
   type PathEntryType,
   type PathDateVisibility,
   type PathLinkKind,
+  type ProfileNoteDraft,
+  type NoteLinkDraft,
+  type NoteLinkKind,
   type ProjectLinkDraft,
   type ProjectLinkKind,
   type ProjectStatus,
@@ -358,6 +364,49 @@ type TimelineLinksRow = {
   updated_at: string;
 };
 
+type NotesRow = {
+  id: string;
+  profile_id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  body_markdown: string;
+  cover_image_url: string | null;
+  published_at: string | null;
+  reading_time_text: string;
+  canonical_url: string | null;
+  is_published: boolean;
+  is_featured: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+type NoteTagsRow = {
+  id: string;
+  profile_id: string;
+  note_id: string;
+  tag: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type NoteLinksRow = {
+  id: string;
+  profile_id: string;
+  note_id: string;
+  kind: NoteLinkKind;
+  project_id: string | null;
+  label: string;
+  url: string;
+  position: number;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 type PublicProfileSettingsRow = {
   id: string;
   profile_id: string;
@@ -380,6 +429,7 @@ type PublicProfileSettingsRow = {
   published_stack_categories: unknown;
   published_stack_items: unknown;
   published_path_entries: unknown;
+  published_notes: unknown;
   is_published: boolean;
   published_at: string | null;
   updated_at: string;
@@ -482,6 +532,7 @@ export function createBlankWorkspace(
     stackCategories: createStarterStackCategories(profile.id),
     stackItems: [],
     pathEntries: [],
+    notes: [],
     published: null,
     auditLogs: [],
     mode,
@@ -803,6 +854,54 @@ function timelineEntryRowToDraft(
   return parsed.success ? parsed.data : null;
 }
 
+function noteTagRowToTag(row: NoteTagsRow) {
+  return { tag: row.tag, position: row.position };
+}
+
+function noteLinkRowToDraft(row: NoteLinksRow): NoteLinkDraft {
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    noteId: row.note_id,
+    kind: row.kind,
+    projectId: row.project_id ?? "",
+    label: row.label,
+    url: row.url,
+    position: row.position,
+    isEnabled: row.is_enabled,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function noteRowToDraft(
+  row: NotesRow,
+  tags: NoteTagsRow[],
+  links: NoteLinksRow[],
+): ProfileNoteDraft | null {
+  const candidate = {
+    id: row.id,
+    profileId: row.profile_id,
+    title: row.title,
+    slug: row.slug,
+    excerpt: row.excerpt,
+    bodyMarkdown: row.body_markdown,
+    coverImageUrl: row.cover_image_url ?? "",
+    tags: [...tags].sort((left, right) => left.position - right.position).map(noteTagRowToTag).map((tag) => tag.tag),
+    publishedAt: row.published_at ?? "",
+    readingTimeText: row.reading_time_text,
+    canonicalUrl: row.canonical_url ?? "",
+    isPublished: row.is_published,
+    isFeatured: row.is_featured,
+    position: row.position,
+    links: [...links].sort((left, right) => left.position - right.position).map(noteLinkRowToDraft),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+  const parsed = noteDraftSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
+}
+
 function normalizeProjectDrafts(
   profileId: string,
   projects: ProfileProjectDraftInput[],
@@ -953,6 +1052,34 @@ function normalizePathEntries(
   });
 }
 
+function normalizeNotes(
+  profileId: string,
+  notes: ProfileNoteDraftInput[],
+  existingNotes: ProfileNoteDraft[] = [],
+) {
+  const timestamp = nowIso();
+  const existingById = new Map(existingNotes.map((note) => [note.id, note]));
+  return sortNotes(notes).map<ProfileNoteDraft>((note, position) => {
+    const existing = existingById.get(note.id);
+    return {
+      ...note,
+      profileId,
+      position,
+      tags: note.tags.map((tag) => tag.trim()).filter(Boolean),
+      links: note.links.map((link, linkPosition) => ({
+        ...link,
+        profileId,
+        noteId: note.id,
+        position: linkPosition,
+        createdAt: existing?.links.find((item) => item.id === link.id)?.createdAt ?? link.createdAt ?? timestamp,
+        updatedAt: timestamp,
+      })),
+      createdAt: existing?.createdAt ?? note.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    };
+  });
+}
+
 function auditRowToEntry(row: AuditLogsRow): AuditLogEntry {
   return {
     id: row.id,
@@ -1003,6 +1130,7 @@ function publicRowToSnapshot(row: PublicProfileSettingsRow): PublicProfileSnapsh
     publishedStackCategories: Array.isArray(row.published_stack_categories) ? row.published_stack_categories : [],
     publishedStackItems: Array.isArray(row.published_stack_items) ? row.published_stack_items : [],
     publishedPathEntries: Array.isArray(row.published_path_entries) ? row.published_path_entries : [],
+    publishedNotes: Array.isArray(row.published_notes) ? row.published_notes : [],
     publishedAt: row.published_at ?? row.updated_at,
     isPublished: row.is_published,
   };
@@ -1481,6 +1609,66 @@ function mapTimelineLinksToRows(profileId: string, entries: ProfilePathEntryDraf
   })));
 }
 
+function mapNoteInputsToRows(
+  profileId: string,
+  notes: ProfileNoteDraftInput[],
+  existingNotes: Array<{ id: string; created_at?: string; createdAt?: string }>,
+): NotesRow[] {
+  const timestamp = nowIso();
+  const existingById = new Map(existingNotes.map((note) => [note.id, note]));
+  return sortNotes(notes).map((note, position) => {
+    const existing = existingById.get(note.id);
+    return {
+      id: note.id,
+      profile_id: profileId,
+      title: note.title.trim(),
+      slug: note.slug.trim().toLowerCase(),
+      excerpt: note.excerpt.trim(),
+      body_markdown: note.bodyMarkdown.trim(),
+      cover_image_url: note.coverImageUrl.trim() || null,
+      published_at: note.publishedAt || null,
+      reading_time_text: note.readingTimeText.trim(),
+      canonical_url: note.canonicalUrl.trim() || null,
+      is_published: note.isPublished,
+      is_featured: note.isFeatured,
+      position,
+      created_at: existing?.created_at ?? existing?.createdAt ?? note.createdAt ?? timestamp,
+      updated_at: timestamp,
+      deleted_at: null,
+    };
+  });
+}
+
+function mapNoteTagsToRows(profileId: string, notes: ProfileNoteDraftInput[]): NoteTagsRow[] {
+  const timestamp = nowIso();
+  return notes.flatMap((note) => note.tags.map((tag, position) => ({
+    id: randomUUID(),
+    profile_id: profileId,
+    note_id: note.id,
+    tag: tag.trim(),
+    position,
+    created_at: timestamp,
+    updated_at: timestamp,
+  })));
+}
+
+function mapNoteLinksToRows(profileId: string, notes: ProfileNoteDraftInput[]): NoteLinksRow[] {
+  const timestamp = nowIso();
+  return notes.flatMap((note) => note.links.map((link, position) => ({
+    id: link.id,
+    profile_id: profileId,
+    note_id: note.id,
+    kind: link.kind,
+    project_id: link.projectId || null,
+    label: link.label.trim(),
+    url: link.url.trim(),
+    position,
+    is_enabled: link.isEnabled,
+    created_at: link.createdAt ?? timestamp,
+    updated_at: timestamp,
+  })));
+}
+
 function createAuditRow(
   profileId: string,
   actorId: string,
@@ -1519,7 +1707,7 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
   }
 
   const profileId = profileRow.id;
-  const [linksResult, sectionsResult, blocksResult, projectsResult, projectTechnologiesResult, projectLinksResult, projectTagsResult, repositoriesResult, repositoryTopicsResult, repositoryLanguagesResult, repositoryLinksResult, stackCategoriesResult, stackItemsResult, stackProjectsResult, stackLinksResult, pathEntriesResult, pathHighlightsResult, pathTechnologiesResult, pathLinksResult, publicResult, auditResult] = await Promise.all([
+  const [linksResult, sectionsResult, blocksResult, projectsResult, projectTechnologiesResult, projectLinksResult, projectTagsResult, repositoriesResult, repositoryTopicsResult, repositoryLanguagesResult, repositoryLinksResult, stackCategoriesResult, stackItemsResult, stackProjectsResult, stackLinksResult, pathEntriesResult, pathHighlightsResult, pathTechnologiesResult, pathLinksResult, notesResult, noteTagsResult, noteLinksResult, publicResult, auditResult] = await Promise.all([
     client
       .from("profile_links")
       .select("*")
@@ -1643,6 +1831,25 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       .order("position", { ascending: true })
       .limit(160),
     client
+      .from("notes")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null)
+      .order("position", { ascending: true })
+      .limit(40),
+    client
+      .from("note_tags")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(320),
+    client
+      .from("note_links")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(160),
+    client
       .from("public_profile_settings")
       .select("*")
       .eq("profile_id", profileId)
@@ -1715,6 +1922,16 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       pathLinks.filter((link) => link.entry_id === row.id),
     ))
     .filter((entry): entry is ProfilePathEntryDraft => entry !== null);
+  const notesRows = (notesResult.data ?? []) as NotesRow[];
+  const noteTags = (noteTagsResult.data ?? []) as NoteTagsRow[];
+  const noteLinks = (noteLinksResult.data ?? []) as NoteLinksRow[];
+  const notes = notesRows
+    .map((row) => noteRowToDraft(
+      row,
+      noteTags.filter((tag) => tag.note_id === row.id),
+      noteLinks.filter((link) => link.note_id === row.id),
+    ))
+    .filter((note): note is ProfileNoteDraft => note !== null);
   const published = publicResult.data ? publicRowToSnapshot(publicResult.data) : null;
   const auditLogs = (auditResult.data ?? []).map(auditRowToEntry);
 
@@ -1728,6 +1945,7 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
     stackCategories,
     stackItems,
     pathEntries,
+    notes,
     published,
     auditLogs,
     mode: "authenticated",
@@ -1810,6 +2028,13 @@ export async function getPublicProject(handle: string, slug: string) {
   return project ? { profile, project } : null;
 }
 
+export async function getPublicNote(handle: string, slug: string) {
+  const profile = await getPublicProfile(handle);
+  if (!profile) return null;
+  const note = profile.publishedNotes.find((item) => item.slug === slug.trim().toLowerCase());
+  return note ? { profile, note } : null;
+}
+
 async function persistDemoWorkspace(
   input: WorkspaceDraftInput,
   publish: boolean,
@@ -1874,6 +2099,11 @@ async function persistDemoWorkspace(
     input.pathEntries,
     store.pathEntries,
   );
+  const nextNotes = normalizeNotes(
+    nextProfile.id,
+    input.notes,
+    store.notes,
+  );
   store.profile = nextProfile;
   store.links = nextLinks.map(linkRowToDraft);
   store.sections = nextSections;
@@ -1883,6 +2113,7 @@ async function persistDemoWorkspace(
   store.stackCategories = nextStackCategories;
   store.stackItems = nextStackItems;
   store.pathEntries = nextPathEntries;
+  store.notes = nextNotes;
   store.published = publish
     ? buildPublicProfileSnapshot(
         nextProfile,
@@ -1895,6 +2126,7 @@ async function persistDemoWorkspace(
         store.stackCategories,
         store.stackItems,
         store.pathEntries,
+        store.notes,
       )
     : store.published;
   store.auditLogs = [
@@ -1903,8 +2135,8 @@ async function persistDemoWorkspace(
       nextProfile.ownerId,
       publish ? "profile_published" : "profile_saved",
       publish
-        ? `Published ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, and ${store.pathEntries.length} Path entries`
-        : `Saved ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, and ${store.pathEntries.length} Path entries`,
+        ? `Published ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, ${store.pathEntries.length} Path entries, and ${store.notes.length} Notes`
+        : `Saved ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, ${store.pathEntries.length} Path entries, and ${store.notes.length} Notes`,
       {
         published: publish,
         linkCount: store.links.length,
@@ -1915,6 +2147,7 @@ async function persistDemoWorkspace(
         stackCategoryCount: store.stackCategories.length,
         stackItemCount: store.stackItems.length,
         pathEntryCount: store.pathEntries.length,
+        noteCount: store.notes.length,
       },
     ),
     ...store.auditLogs,
@@ -2046,7 +2279,7 @@ async function persistSupabaseWorkspace(
     }
   }
 
-  const [{ data: existingSectionsMany }, { data: existingBlocksMany }, { data: existingProjectsMany }, { data: existingProjectLinksMany }, { data: existingRepositoriesMany }, { data: existingRepositoryLinksMany }, { data: existingStackCategoriesMany }, { data: existingStackItemsMany }, { data: existingPathEntriesMany }] = await Promise.all([
+  const [{ data: existingSectionsMany }, { data: existingBlocksMany }, { data: existingProjectsMany }, { data: existingProjectLinksMany }, { data: existingRepositoriesMany }, { data: existingRepositoryLinksMany }, { data: existingStackCategoriesMany }, { data: existingStackItemsMany }, { data: existingPathEntriesMany }, { data: existingNotesMany }] = await Promise.all([
     client
       .from("profile_sections")
       .select("*")
@@ -2087,6 +2320,11 @@ async function persistSupabaseWorkspace(
       .is("deleted_at", null),
     client
       .from("timeline_entries")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null),
+    client
+      .from("notes")
       .select("*")
       .eq("profile_id", profileId)
       .is("deleted_at", null),
@@ -2384,6 +2622,52 @@ async function persistSupabaseWorkspace(
     if (error) return { ok: false, message: error.message, fieldErrors: {} };
   }
 
+  const nextNotes = mapNoteInputsToRows(
+    profileId,
+    input.notes,
+    (existingNotesMany ?? []) as NotesRow[],
+  );
+  const nextNoteDrafts = normalizeNotes(profileId, input.notes);
+  if (nextNotes.length > 0) {
+    const { error: noteUpsertError } = await client.from("notes").upsert(nextNotes);
+    if (noteUpsertError) return { ok: false, message: noteUpsertError.message, fieldErrors: {} };
+  }
+  for (const table of ["note_tags", "note_links"] as const) {
+    const { error: childDeleteError } = await client.from(table).delete().eq("profile_id", profileId);
+    if (childDeleteError) return { ok: false, message: childDeleteError.message, fieldErrors: {} };
+  }
+  const noteTags = mapNoteTagsToRows(profileId, input.notes);
+  const noteLinks = mapNoteLinksToRows(profileId, input.notes);
+  if (noteTags.length > 0) {
+    const { error } = await client.from("note_tags").insert(noteTags);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  if (noteLinks.length > 0) {
+    const { error } = await client.from("note_links").insert(noteLinks);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  const staleNoteIds = (existingNotesMany ?? [])
+    .map((note) => note.id)
+    .filter((id) => !nextNotes.some((note) => note.id === id));
+  if (staleNoteIds.length > 0) {
+    const { error } = await client.from("notes").delete().eq("profile_id", profileId).in("id", staleNoteIds);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  if (nextNotes.length > 0) {
+    const revisions = nextNotes.map((note) => ({
+      id: randomUUID(),
+      profile_id: profileId,
+      note_id: note.id,
+      actor_id: viewer.userId,
+      title: note.title,
+      excerpt: note.excerpt,
+      body_markdown: note.body_markdown,
+      created_at: nowIso(),
+    }));
+    const { error: revisionError } = await client.from("note_revisions").insert(revisions);
+    if (revisionError) return { ok: false, message: revisionError.message, fieldErrors: {} };
+  }
+
   if (publish) {
     const published = buildPublicProfileSnapshot(
       profileRowToDraft(profileRow),
@@ -2398,6 +2682,7 @@ async function persistSupabaseWorkspace(
       nextStackCategoryDrafts,
       nextStackItemDrafts,
       nextPathEntryDrafts,
+      nextNoteDrafts,
     );
     const publicRow = {
       profile_id: profileId,
@@ -2420,6 +2705,7 @@ async function persistSupabaseWorkspace(
       published_stack_categories: published.publishedStackCategories,
       published_stack_items: published.publishedStackItems,
       published_path_entries: published.publishedPathEntries,
+      published_notes: published.publishedNotes,
       is_published: true,
       published_at: nowIso(),
       updated_at: nowIso(),
@@ -2443,8 +2729,8 @@ async function persistSupabaseWorkspace(
     viewer.userId,
     publish ? "profile_published" : "profile_saved",
     publish
-      ? `Published ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, and ${nextPathEntryDrafts.length} Path entries`
-      : `Saved ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, and ${nextPathEntryDrafts.length} Path entries`,
+      ? `Published ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, ${nextPathEntryDrafts.length} Path entries, and ${nextNoteDrafts.length} Notes`
+      : `Saved ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, ${nextPathEntryDrafts.length} Path entries, and ${nextNoteDrafts.length} Notes`,
     {
       published: publish,
       linkCount: nextLinks.length,
@@ -2455,6 +2741,7 @@ async function persistSupabaseWorkspace(
       stackCategoryCount: nextStackCategoryDrafts.length,
       stackItemCount: nextStackItemDrafts.length,
       pathEntryCount: nextPathEntryDrafts.length,
+      noteCount: nextNoteDrafts.length,
       handle: profileRow.handle,
     },
   );

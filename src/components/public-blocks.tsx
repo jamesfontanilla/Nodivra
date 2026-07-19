@@ -16,9 +16,11 @@ import type {
   ExternalResourceConfiguration,
   ImageCardConfiguration,
   LinkButtonConfiguration,
+  NoteHighlightConfiguration,
   ProjectHighlightConfiguration,
   PublicBlockSnapshot,
   PublicProjectSnapshot,
+  PublicNoteSnapshot,
   PublicSectionSnapshot,
   SocialLinkConfiguration,
   TextSectionConfiguration,
@@ -57,6 +59,7 @@ function blockWidth(type: PublicBlockSnapshot["type"]) {
   switch (type) {
     case "project_highlight":
     case "image_card":
+    case "note_highlight":
       return "md:col-span-7";
     case "text_section":
     case "cta_card":
@@ -94,7 +97,7 @@ function ctaAccent(accent: CtaCardConfiguration["accent"]) {
   }
 }
 
-function renderBlock(block: PublicBlockSnapshot, projects: PublicProjectSnapshot[], profileHandle?: string) {
+function renderBlock(block: PublicBlockSnapshot, projects: PublicProjectSnapshot[], notes: PublicNoteSnapshot[], profileHandle?: string) {
   switch (block.type) {
     case "link_button": {
       const config = block.configuration as LinkButtonConfiguration;
@@ -258,6 +261,25 @@ function renderBlock(block: PublicBlockSnapshot, projects: PublicProjectSnapshot
         </BlockShell>
       );
     }
+    case "note_highlight": {
+      const config = block.configuration as NoteHighlightConfiguration;
+      const note = notes.find((candidate) => candidate.id === config.noteId);
+      const title = note?.title ?? config.title;
+      const excerpt = note?.excerpt ?? config.excerpt;
+      const href = note && profileHandle ? `/u/${profileHandle}/notes/${note.slug}` : config.url;
+      return (
+        <BlockShell title={block.title} className="bg-sand-100/10">
+          <div className="flex h-full flex-col justify-between gap-8">
+            <div className="space-y-4">
+              <Badge tone="accent">From the notebook</Badge>
+              <h3 className="font-display text-3xl leading-tight tracking-tight text-sand-50 sm:text-4xl">{title}</h3>
+              <p className="max-w-xl text-sm leading-7 text-sand-200/80">{excerpt}</p>
+            </div>
+            {href ? <a href={href} target={note ? undefined : "_blank"} rel={note ? undefined : "noreferrer"} className="inline-flex w-fit items-center gap-2 text-sm text-sand-50 underline decoration-white/20 underline-offset-4 transition-[transform,color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:text-sand-200">Read the note <ArrowUpRightIcon className="h-4 w-4" /></a> : null}
+          </div>
+        </BlockShell>
+      );
+    }
   }
 }
 
@@ -265,11 +287,13 @@ export function PublicBlocks({
   sections,
   blocks,
   projects = [],
+  notes = [],
   profileHandle,
 }: {
   sections: PublicSectionSnapshot[];
   blocks: PublicBlockSnapshot[];
   projects?: PublicProjectSnapshot[];
+  notes?: PublicNoteSnapshot[];
   profileHandle?: string;
 }) {
   if (sections.length === 0 || blocks.length === 0) {
@@ -316,7 +340,7 @@ export function PublicBlocks({
             <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
               {sectionBlocks.map((block) => (
                 <div key={block.id} className={cn("col-span-1", blockWidth(block.type))}>
-                  {renderBlock(block, projects, profileHandle)}
+                  {renderBlock(block, projects, notes, profileHandle)}
                 </div>
               ))}
             </div>

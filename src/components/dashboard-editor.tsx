@@ -8,11 +8,13 @@ import { PublicProjects } from "@/components/project-detail";
 import { PublicRepositories } from "@/components/repository-detail";
 import { PublicStack } from "@/components/stack-detail";
 import { PublicPath } from "@/components/path-detail";
+import { PublicNotes } from "@/components/note-detail";
 import { BlocksEditor } from "@/components/blocks-editor";
 import { ProjectsEditor } from "@/components/projects-editor";
 import { RepositoriesEditor } from "@/components/repositories-editor";
 import { StackEditor } from "@/components/stack-editor";
 import { PathEditor } from "@/components/path-editor";
+import { NotesEditor } from "@/components/notes-editor";
 import {
   ArrowUpRightIcon,
   CheckIcon,
@@ -34,6 +36,7 @@ import type {
   ProfileStackCategoryDraft,
   ProfileStackItemDraft,
   ProfilePathEntryDraft,
+  ProfileNoteDraft,
   ProfileSectionDraft,
   WorkspaceSnapshot,
 } from "@/types/nodivra";
@@ -57,7 +60,7 @@ type Notice = {
   message: string;
 } | null;
 
-type EditorTab = "profile" | "path" | "blocks" | "projects" | "repos" | "stack";
+type EditorTab = "profile" | "path" | "notes" | "blocks" | "projects" | "repos" | "stack";
 type PreviewDevice = "desktop" | "mobile";
 
 function createDraftLink(profileId: string, position: number): ProfileLinkDraft {
@@ -153,6 +156,7 @@ export function DashboardEditor({
     workspace.stackCategories,
     workspace.stackItems,
     workspace.pathEntries,
+    workspace.notes,
   );
   const status = statusCopy(workspace, isDirty);
   const publicUrl = workspace.profile.handle
@@ -283,6 +287,19 @@ export function DashboardEditor({
         updatedAt: new Date().toISOString(),
       },
       pathEntries,
+    }));
+  }
+
+  function patchNotes(notes: ProfileNoteDraft[]) {
+    setIsDirty(true);
+    setWorkspace((current) => ({
+      ...current,
+      profile: {
+        ...current.profile,
+        isPublished: false,
+        updatedAt: new Date().toISOString(),
+      },
+      notes,
     }));
   }
 
@@ -555,6 +572,31 @@ export function DashboardEditor({
       createdAt: now,
       updatedAt: now,
     }));
+    const nextNotes = published.publishedNotes.map((note) => ({
+      id: note.id,
+      profileId: workspace.profile.id,
+      title: note.title,
+      slug: note.slug,
+      excerpt: note.excerpt,
+      bodyMarkdown: note.bodyMarkdown,
+      coverImageUrl: note.coverImageUrl,
+      tags: note.tags,
+      publishedAt: note.publishedAt,
+      readingTimeText: note.readingTimeText,
+      canonicalUrl: note.canonicalUrl,
+      isPublished: true,
+      isFeatured: note.isFeatured,
+      position: note.position,
+      links: note.links.map((link) => ({
+        ...link,
+        profileId: workspace.profile.id,
+        noteId: note.id,
+        createdAt: now,
+        updatedAt: now,
+      })),
+      createdAt: now,
+      updatedAt: now,
+    }));
 
     setWorkspace((current) => ({
       ...current,
@@ -582,6 +624,7 @@ export function DashboardEditor({
       stackCategories: nextStackCategories,
       stackItems: nextStackItems,
       pathEntries: nextPathEntries,
+      notes: nextNotes,
     }));
     setIsDirty(false);
     setNotice({ tone: "success", message: "Draft restored to the latest published snapshot." });
@@ -735,6 +778,19 @@ export function DashboardEditor({
           >
             <span className="block font-medium">Stack</span>
             <span className={cn("mt-1 block text-xs", activeTab === "stack" ? "text-ink-700" : "text-sand-300/60")}>Tools and working preferences</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "notes"}
+            onClick={() => setActiveTab("notes")}
+            className={cn(
+              "flex-1 rounded-full px-4 py-3 text-left text-sm transition-[transform,background-color,color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.99] sm:flex-none sm:min-w-[180px]",
+              activeTab === "notes" ? "bg-sand-100 text-ink-950" : "text-sand-200/70 hover:bg-white/10 hover:text-sand-50",
+            )}
+          >
+            <span className="block font-medium">Notes</span>
+            <span className={cn("mt-1 block text-xs", activeTab === "notes" ? "text-ink-700" : "text-sand-300/60")}>Articles and field notes</span>
           </button>
           <button
             type="button"
@@ -1174,12 +1230,21 @@ export function DashboardEditor({
               onChange={patchPath}
               fieldErrors={fieldErrors}
             />
+          ) : activeTab === "notes" ? (
+            <NotesEditor
+              profileId={workspace.profile.id}
+              notes={workspace.notes}
+              projects={workspace.projects}
+              onChange={patchNotes}
+              fieldErrors={fieldErrors}
+            />
           ) : activeTab === "blocks" ? (
             <BlocksEditor
               profileId={workspace.profile.id}
               sections={workspace.sections}
               blocks={workspace.blocks}
               projects={workspace.projects}
+              notes={workspace.notes}
               onChange={patchBlocks}
               fieldErrors={fieldErrors}
             />
@@ -1254,10 +1319,12 @@ export function DashboardEditor({
                   projects={livePreview.publishedProjects}
                   profileHandle={livePreview.handle}
                 />
+                <PublicNotes notes={livePreview.publishedNotes} profileHandle={livePreview.handle} />
                 <PublicBlocks
                   sections={livePreview.publishedSections}
                   blocks={livePreview.publishedBlocks}
                   projects={livePreview.publishedProjects}
+                  notes={livePreview.publishedNotes}
                   profileHandle={livePreview.handle}
                 />
                 <PublicProjects projects={livePreview.publishedProjects} profileHandle={livePreview.handle} />
@@ -1308,7 +1375,7 @@ export function DashboardEditor({
                         Published links
                       </p>
                       <p className="mt-2 text-lg font-medium text-sand-50">
-                        {workspace.published.publishedLinks.length} links · {workspace.published.publishedPathEntries.length} Path entries · {workspace.published.publishedProjects.length} projects · {workspace.published.publishedRepositories.length} repos · {workspace.published.publishedStackItems.length} stack items
+                        {workspace.published.publishedLinks.length} links · {workspace.published.publishedPathEntries.length} Path entries · {workspace.published.publishedNotes.length} notes · {workspace.published.publishedProjects.length} projects · {workspace.published.publishedRepositories.length} repos · {workspace.published.publishedStackItems.length} stack items
                       </p>
                     </div>
                     <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
@@ -1366,7 +1433,7 @@ export function DashboardEditor({
       <div className="fixed inset-x-4 bottom-4 z-30 flex items-center gap-3 rounded-[1.5rem] bg-ink-950/95 p-2 shadow-halo ring-1 ring-white/15 backdrop-blur-xl lg:hidden">
         <div className="min-w-0 flex-1 px-3">
           <p className="truncate text-xs font-medium text-sand-50">{isDirty ? "Unsaved changes" : "All changes saved"}</p>
-          <p className="truncate text-[10px] uppercase tracking-[0.16em] text-sand-300/60">{activeTab === "blocks" ? "Blocks editor" : activeTab === "path" ? "Path editor" : activeTab === "projects" ? "Projects editor" : activeTab === "repos" ? "Repos editor" : activeTab === "stack" ? "Stack editor" : "Profile editor"}</p>
+          <p className="truncate text-[10px] uppercase tracking-[0.16em] text-sand-300/60">{activeTab === "blocks" ? "Blocks editor" : activeTab === "path" ? "Path editor" : activeTab === "notes" ? "Notes editor" : activeTab === "projects" ? "Projects editor" : activeTab === "repos" ? "Repos editor" : activeTab === "stack" ? "Stack editor" : "Profile editor"}</p>
         </div>
         <Button type="button" variant="secondary" disabled={!canSave} onClick={() => void saveWorkspace("save")}>
           {savingAction === "save" ? "Saving" : "Save"}

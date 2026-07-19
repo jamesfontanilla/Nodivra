@@ -9,6 +9,7 @@ import {
   profileDraftSchema,
   repositoryDraftSchema,
   pathEntryDraftSchema,
+  noteDraftSchema,
   stackItemDraftSchema,
   workspaceDraftSchema,
 } from "@/lib/validation";
@@ -121,6 +122,28 @@ describe("validation helpers", () => {
       links: [],
       isPublished: false,
       position: 0,
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+  }
+
+  function note(id: string, slug = "field-note", isPublished = false) {
+    return {
+      id,
+      profileId,
+      title: "A useful field note",
+      slug,
+      excerpt: "A bounded introduction to the idea behind this note.",
+      bodyMarkdown: "## The idea\n\nA safe and useful note.",
+      coverImageUrl: "",
+      tags: ["systems", "writing"],
+      publishedAt: isPublished ? "2026-07-12" : "",
+      readingTimeText: "3 min read",
+      canonicalUrl: "",
+      isPublished,
+      isFeatured: false,
+      position: 0,
+      links: [],
       createdAt: "2026-07-18T00:00:00.000Z",
       updatedAt: "2026-07-18T00:00:00.000Z",
     };
@@ -375,6 +398,36 @@ describe("validation helpers", () => {
     expect(invalidDate.success).toBe(false);
     expect(currentWithEnd.success).toBe(false);
     expect(foreignEntry.success).toBe(false);
+  });
+
+  it("keeps Notes publishable only when slugs and Markdown are safe", () => {
+    const valid = noteDraftSchema.safeParse(note("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeef", "safe-note", true));
+    const unsafeMarkdown = noteDraftSchema.safeParse({ ...note("ffffffff-ffff-4fff-8fff-ffffffffffff"), bodyMarkdown: "<iframe src=\"https://evil.example\"></iframe>" });
+    const missingPublicationDate = noteDraftSchema.safeParse({ ...note("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab"), isPublished: true });
+    const duplicateSlugs = workspaceDraftSchema.safeParse({
+      profile: {
+        id: profileId,
+        handle: "jamie-fontanilla",
+        displayName: "Jamie Fontanilla",
+        headline: "",
+        bio: "",
+        locationText: "",
+        timezone: "UTC",
+        avatarInitials: "JF",
+        avatarUrl: "",
+        primaryCtaLabel: "",
+        primaryCtaUrl: "",
+        availabilityStatus: "available",
+        isPublished: false,
+      },
+      links: [],
+      notes: [note("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbc"), { ...note("cccccccc-cccc-4ccc-8ccc-cccccccccccd"), position: 1 }],
+    });
+
+    expect(valid.success).toBe(true);
+    expect(unsafeMarkdown.success).toBe(false);
+    expect(missingPublicationDate.success).toBe(false);
+    expect(duplicateSlugs.success).toBe(false);
   });
 
   it("validates controlled Stack categories, icons, ownership, and project links", () => {

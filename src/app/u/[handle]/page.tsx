@@ -6,6 +6,7 @@ import { PublicProjects } from "@/components/project-detail";
 import { PublicRepositories } from "@/components/repository-detail";
 import { PublicStack } from "@/components/stack-detail";
 import { PublicPath } from "@/components/path-detail";
+import { PublicNotes } from "@/components/note-detail";
 import { Reveal } from "@/components/reveal";
 import { Badge, Panel } from "@/components/ui";
 import { buildPublicProfileMetadata } from "@/lib/metadata";
@@ -51,10 +52,12 @@ export default async function PublicProfilePage({
           projects={activeProfile.publishedProjects}
           profileHandle={activeProfile.handle}
         />
+        <PublicNotes notes={activeProfile.publishedNotes} profileHandle={activeProfile.handle} />
         <PublicBlocks
           sections={activeProfile.publishedSections}
           blocks={activeProfile.publishedBlocks}
           projects={activeProfile.publishedProjects}
+          notes={activeProfile.publishedNotes}
           profileHandle={activeProfile.handle}
         />
         <PublicProjects projects={activeProfile.publishedProjects} profileHandle={activeProfile.handle} />

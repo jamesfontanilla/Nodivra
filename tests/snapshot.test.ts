@@ -3,7 +3,7 @@ import {
   buildPublicProfileSnapshot,
   splitVisibleLinks,
 } from "@/lib/snapshot";
-import type { ProfilePathEntryDraft, ProfileProjectDraft, ProfileRepositoryDraft, ProfileStackCategoryDraft, ProfileStackItemDraft } from "@/types/nodivra";
+import type { ProfileNoteDraft, ProfilePathEntryDraft, ProfileProjectDraft, ProfileRepositoryDraft, ProfileStackCategoryDraft, ProfileStackItemDraft } from "@/types/nodivra";
 
 describe("public snapshot helpers", () => {
   it("sorts and filters links before publishing", () => {
@@ -505,5 +505,63 @@ describe("public snapshot helpers", () => {
     expect(snapshot.publishedPathEntries[0]?.startDate).toBe("2021");
     expect(snapshot.publishedPathEntries[0]?.endDate).toBe("2023");
     expect(snapshot.publishedPathEntries[0]?.links[0]?.projectId).toBe(project.id);
+  });
+
+  it("publishes Notes in stable order and isolates drafts or private project links", () => {
+    const profile = {
+      id: "11111111-1111-1111-1111-111111111111",
+      ownerId: "11111111-1111-1111-1111-111111111111",
+      handle: "jamie-fontanilla",
+      displayName: "Jamie Fontanilla",
+      headline: "",
+      bio: "",
+      locationText: "",
+      timezone: "UTC",
+      avatarInitials: "JF",
+      avatarUrl: "",
+      primaryCtaLabel: "",
+      primaryCtaUrl: "",
+      availabilityStatus: "available" as const,
+      isPublished: false,
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+    const note: ProfileNoteDraft = {
+      id: "88888888-8888-4888-8888-888888888888",
+      profileId: profile.id,
+      title: "A public note",
+      slug: "a-public-note",
+      excerpt: "A public note excerpt.",
+      bodyMarkdown: "## A safe body\n\nA little useful thinking.",
+      coverImageUrl: "",
+      tags: ["systems"],
+      publishedAt: "2026-07-12",
+      readingTimeText: "3 min read",
+      canonicalUrl: "",
+      isPublished: true,
+      isFeatured: true,
+      position: 1,
+      links: [{
+        id: "99999999-9999-4999-8999-999999999999",
+        profileId: profile.id,
+        noteId: "88888888-8888-4888-8888-888888888888",
+        kind: "project",
+        projectId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab",
+        label: "Private project",
+        url: "",
+        position: 0,
+        isEnabled: true,
+        createdAt: profile.createdAt,
+        updatedAt: profile.updatedAt,
+      }],
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+    const privateNote = { ...note, id: "77777777-7777-4777-8777-777777777777", slug: "private-note", isPublished: false, isFeatured: false, position: 0 };
+    const snapshot = buildPublicProfileSnapshot(profile, [], profile.updatedAt, [], [], [], [], [], [], [], [note, privateNote]);
+
+    expect(snapshot.publishedNotes).toHaveLength(1);
+    expect(snapshot.publishedNotes[0]?.slug).toBe("a-public-note");
+    expect(snapshot.publishedNotes[0]?.links).toHaveLength(0);
   });
 });
