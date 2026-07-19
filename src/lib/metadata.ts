@@ -83,20 +83,22 @@ export function buildPublicNoteMetadata(
   const title = `${note.title} · ${profile.displayName} · ${siteName}`;
   const description = note.excerpt || buildDescription(profile);
   const canonical = note.canonicalUrl || new URL(`/u/${profile.handle}/notes/${note.slug}`, getSiteUrl()).toString();
+  const openGraph = {
+    title,
+    description,
+    url: canonical,
+    siteName,
+    type: "article",
+    ...(note.coverImageUrl ? { images: [{ url: note.coverImageUrl, alt: note.title }] } : {}),
+    publishedTime: note.publishedAt ? `${note.publishedAt}T00:00:00.000Z` : undefined,
+    tags: note.tags,
+  };
+
   return {
     title,
     description,
     alternates: { canonical },
-    openGraph: {
-      title,
-      description,
-      url: canonical,
-      siteName,
-      type: "article" as const,
-      ...(note.coverImageUrl ? { images: [{ url: note.coverImageUrl, alt: note.title }] } : {}),
-      publishedTime: note.publishedAt ? `${note.publishedAt}T00:00:00.000Z` : undefined,
-      tags: note.tags,
-    },
+    openGraph,
     twitter: {
       card: note.coverImageUrl ? "summary_large_image" : "summary",
       title,
