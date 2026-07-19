@@ -66,6 +66,7 @@ export interface ProjectHighlightConfiguration {
   role: string;
   technologies: string[];
   url: string;
+  projectId?: string;
 }
 
 export interface TextSectionConfiguration {
@@ -113,6 +114,85 @@ export type BlockConfiguration =
   | CtaCardConfiguration
   | AvailabilityCardConfiguration
   | ExternalResourceConfiguration;
+
+export const PROJECT_TYPES = [
+  "product",
+  "open_source",
+  "client",
+  "experiment",
+  "talk",
+  "other",
+] as const;
+
+export type ProjectType = (typeof PROJECT_TYPES)[number];
+
+export const PROJECT_STATUSES = [
+  "idea",
+  "in_progress",
+  "shipped",
+  "archived",
+] as const;
+
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
+export const PROJECT_LINK_KINDS = ["live", "repository", "demo"] as const;
+export type ProjectLinkKind = (typeof PROJECT_LINK_KINDS)[number];
+
+export interface ProjectLinkDraft {
+  id: string;
+  projectId: string;
+  kind: ProjectLinkKind;
+  label: string;
+  url: string;
+  position: number;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfileProjectDraft {
+  id: string;
+  profileId: string;
+  slug: string;
+  projectName: string;
+  shortSummary: string;
+  caseStudyMarkdown: string;
+  role: string;
+  technologies: string[];
+  projectType: ProjectType;
+  startDate: string;
+  endDate: string;
+  status: ProjectStatus;
+  coverImageUrl: string;
+  lessonsLearned: string;
+  tags: string[];
+  isFeatured: boolean;
+  isPublished: boolean;
+  position: number;
+  links: ProjectLinkDraft[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublicProjectSnapshot {
+  id: string;
+  slug: string;
+  projectName: string;
+  shortSummary: string;
+  caseStudyMarkdown: string;
+  role: string;
+  technologies: string[];
+  projectType: ProjectType;
+  startDate: string;
+  endDate: string;
+  status: ProjectStatus;
+  coverImageUrl: string;
+  lessonsLearned: string;
+  tags: string[];
+  isFeatured: boolean;
+  position: number;
+  links: Array<Pick<ProjectLinkDraft, "id" | "kind" | "label" | "url" | "position" | "isEnabled">>;
+}
 
 export interface ProfileSectionDraft {
   id: string;
@@ -214,6 +294,7 @@ export interface PublicProfileSnapshot {
   publishedLinks: PublicLinkSnapshot[];
   publishedSections: PublicSectionSnapshot[];
   publishedBlocks: PublicBlockSnapshot[];
+  publishedProjects: PublicProjectSnapshot[];
   publishedAt: string;
   isPublished: boolean;
 }
@@ -235,6 +316,7 @@ export interface WorkspaceSnapshot {
   links: ProfileLinkDraft[];
   sections: ProfileSectionDraft[];
   blocks: ProfileBlockDraft[];
+  projects: ProfileProjectDraft[];
   published: PublicProfileSnapshot | null;
   auditLogs: AuditLogEntry[];
   mode: "demo" | "authenticated" | "anonymous";

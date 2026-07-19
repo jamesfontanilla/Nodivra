@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PublicProfileCard } from "@/components/public-profile-card";
 import { PublicBlocks } from "@/components/public-blocks";
+import { PublicProjects } from "@/components/project-detail";
 import { Reveal } from "@/components/reveal";
 import { Badge, Panel } from "@/components/ui";
 import { buildPublicProfileMetadata } from "@/lib/metadata";
@@ -45,7 +46,10 @@ export default async function PublicProfilePage({
         <PublicBlocks
           sections={activeProfile.publishedSections}
           blocks={activeProfile.publishedBlocks}
+          projects={activeProfile.publishedProjects}
+          profileHandle={activeProfile.handle}
         />
+        <PublicProjects projects={activeProfile.publishedProjects} profileHandle={activeProfile.handle} />
       </Reveal>
 
       <Reveal delay={120} className="mt-6">

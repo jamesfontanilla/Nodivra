@@ -2,9 +2,11 @@ import {
   type ProfileDraft,
   type ProfileBlockDraft,
   type ProfileLinkDraft,
+  type ProfileProjectDraft,
   type ProfileSectionDraft,
   type PublicBlockSnapshot,
   type PublicLinkSnapshot,
+  type PublicProjectSnapshot,
   type PublicProfileSnapshot,
   type PublicSectionSnapshot,
 } from "@/types/nodivra";
@@ -22,6 +24,12 @@ type SortableSection = {
 };
 
 type SortableBlock = {
+  id: string;
+  position: number;
+  createdAt?: string;
+};
+
+type SortableProject = {
   id: string;
   position: number;
   createdAt?: string;
@@ -69,6 +77,18 @@ export function sortBlocks<T extends SortableBlock>(blocks: T[]) {
   });
 }
 
+export function sortProjects<T extends SortableProject>(projects: T[]) {
+  return [...projects].sort((left, right) => {
+    if (left.position !== right.position) {
+      return left.position - right.position;
+    }
+    if (left.createdAt && right.createdAt && left.createdAt !== right.createdAt) {
+      return left.createdAt.localeCompare(right.createdAt);
+    }
+    return left.id.localeCompare(right.id);
+  });
+}
+
 export function toPublicLinks(links: ProfileLinkDraft[]) {
   return sortLinks(links)
     .filter((link) => link.isEnabled && link.visibility !== "hidden")
@@ -89,9 +109,11 @@ export function buildPublicProfileSnapshot(
   publishedAt = profile.updatedAt,
   sections: ProfileSectionDraft[] = [],
   blocks: ProfileBlockDraft[] = [],
+  projects: ProfileProjectDraft[] = [],
 ): PublicProfileSnapshot {
   const publishedSections = toPublicSections(sections);
   const publishedBlocks = toPublicBlocks(blocks, publishedSections);
+  const publishedProjects = toPublicProjects(projects);
 
   return {
     profileId: profile.id,
@@ -109,9 +131,44 @@ export function buildPublicProfileSnapshot(
     publishedLinks: toPublicLinks(links),
     publishedSections,
     publishedBlocks,
+    publishedProjects,
     publishedAt,
     isPublished: true,
   };
+}
+
+export function toPublicProjects(projects: ProfileProjectDraft[]) {
+  return sortProjects(projects)
+    .filter((project) => project.isPublished)
+    .map<PublicProjectSnapshot>((project) => ({
+      id: project.id,
+      slug: project.slug,
+      projectName: project.projectName,
+      shortSummary: project.shortSummary,
+      caseStudyMarkdown: project.caseStudyMarkdown,
+      role: project.role,
+      technologies: project.technologies,
+      projectType: project.projectType,
+      startDate: project.startDate,
+      endDate: project.endDate,
+      status: project.status,
+      coverImageUrl: project.coverImageUrl,
+      lessonsLearned: project.lessonsLearned,
+      tags: project.tags,
+      isFeatured: project.isFeatured,
+      position: project.position,
+      links: project.links
+        .filter((link) => link.isEnabled)
+        .sort((left, right) => left.position - right.position)
+        .map((link) => ({
+          id: link.id,
+          kind: link.kind,
+          label: link.label,
+          url: link.url,
+          position: link.position,
+          isEnabled: link.isEnabled,
+        })),
+    }));
 }
 
 export function toPublicSections(sections: ProfileSectionDraft[]) {

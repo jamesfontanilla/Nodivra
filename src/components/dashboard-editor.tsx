@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PublicProfileCard } from "@/components/public-profile-card";
 import { PublicBlocks } from "@/components/public-blocks";
+import { PublicProjects } from "@/components/project-detail";
 import { BlocksEditor } from "@/components/blocks-editor";
+import { ProjectsEditor } from "@/components/projects-editor";
 import {
   ArrowUpRightIcon,
   CheckIcon,
@@ -21,6 +23,7 @@ import { cn } from "@/lib/classnames";
 import type {
   ProfileBlockDraft,
   ProfileLinkDraft,
+  ProfileProjectDraft,
   ProfileSectionDraft,
   WorkspaceSnapshot,
 } from "@/types/nodivra";
@@ -44,7 +47,7 @@ type Notice = {
   message: string;
 } | null;
 
-type EditorTab = "profile" | "blocks";
+type EditorTab = "profile" | "blocks" | "projects";
 type PreviewDevice = "desktop" | "mobile";
 
 function createDraftLink(profileId: string, position: number): ProfileLinkDraft {
@@ -135,6 +138,7 @@ export function DashboardEditor({
     workspace.profile.updatedAt,
     workspace.sections,
     workspace.blocks,
+    workspace.projects,
   );
   const status = statusCopy(workspace, isDirty);
   const publicUrl = workspace.profile.handle
@@ -212,6 +216,19 @@ export function DashboardEditor({
       },
       sections,
       blocks,
+    }));
+  }
+
+  function patchProjects(projects: ProfileProjectDraft[]) {
+    setIsDirty(true);
+    setWorkspace((current) => ({
+      ...current,
+      profile: {
+        ...current.profile,
+        isPublished: false,
+        updatedAt: new Date().toISOString(),
+      },
+      projects,
     }));
   }
 
@@ -348,6 +365,34 @@ export function DashboardEditor({
       createdAt: now,
       updatedAt: now,
     }));
+    const nextProjects = published.publishedProjects.map((project) => ({
+      id: project.id,
+      profileId: workspace.profile.id,
+      slug: project.slug,
+      projectName: project.projectName,
+      shortSummary: project.shortSummary,
+      caseStudyMarkdown: project.caseStudyMarkdown,
+      role: project.role,
+      technologies: project.technologies,
+      projectType: project.projectType,
+      startDate: project.startDate,
+      endDate: project.endDate,
+      status: project.status,
+      coverImageUrl: project.coverImageUrl,
+      lessonsLearned: project.lessonsLearned,
+      tags: project.tags,
+      isFeatured: project.isFeatured,
+      isPublished: true,
+      position: project.position,
+      links: project.links.map((link) => ({
+        ...link,
+        projectId: project.id,
+        createdAt: now,
+        updatedAt: now,
+      })),
+      createdAt: now,
+      updatedAt: now,
+    }));
 
     setWorkspace((current) => ({
       ...current,
@@ -370,6 +415,7 @@ export function DashboardEditor({
       links: nextLinks,
       sections: nextSections,
       blocks: nextBlocks,
+      projects: nextProjects,
     }));
     setIsDirty(false);
     setNotice({ tone: "success", message: "Draft restored to the latest published snapshot." });
@@ -497,6 +543,19 @@ export function DashboardEditor({
           >
             <span className="block font-medium">Profile</span>
             <span className={cn("mt-1 block text-xs", activeTab === "profile" ? "text-ink-700" : "text-sand-300/60")}>Identity and primary links</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "projects"}
+            onClick={() => setActiveTab("projects")}
+            className={cn(
+              "flex-1 rounded-full px-4 py-3 text-left text-sm transition-[transform,background-color,color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.99] sm:flex-none sm:min-w-[180px]",
+              activeTab === "projects" ? "bg-sand-100 text-ink-950" : "text-sand-200/70 hover:bg-white/10 hover:text-sand-50",
+            )}
+          >
+            <span className="block font-medium">Projects</span>
+            <span className={cn("mt-1 block text-xs", activeTab === "projects" ? "text-ink-700" : "text-sand-300/60")}>Case studies and outcomes</span>
           </button>
           <button
             type="button"
@@ -902,12 +961,20 @@ export function DashboardEditor({
             </div>
           </Panel>
             </>
-          ) : (
+          ) : activeTab === "blocks" ? (
             <BlocksEditor
               profileId={workspace.profile.id}
               sections={workspace.sections}
               blocks={workspace.blocks}
+              projects={workspace.projects}
               onChange={patchBlocks}
+              fieldErrors={fieldErrors}
+            />
+          ) : (
+            <ProjectsEditor
+              profileId={workspace.profile.id}
+              projects={workspace.projects}
+              onChange={patchProjects}
               fieldErrors={fieldErrors}
             />
           )}
@@ -955,7 +1022,10 @@ export function DashboardEditor({
                 <PublicBlocks
                   sections={livePreview.publishedSections}
                   blocks={livePreview.publishedBlocks}
+                  projects={livePreview.publishedProjects}
+                  profileHandle={livePreview.handle}
                 />
+                <PublicProjects projects={livePreview.publishedProjects} profileHandle={livePreview.handle} />
               </div>
             </div>
           </Panel>
@@ -993,7 +1063,7 @@ export function DashboardEditor({
                         Published links
                       </p>
                       <p className="mt-2 text-lg font-medium text-sand-50">
-                        {workspace.published.publishedLinks.length}
+                        {workspace.published.publishedLinks.length} links · {workspace.published.publishedProjects.length} projects
                       </p>
                     </div>
                     <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
@@ -1051,7 +1121,7 @@ export function DashboardEditor({
       <div className="fixed inset-x-4 bottom-4 z-30 flex items-center gap-3 rounded-[1.5rem] bg-ink-950/95 p-2 shadow-halo ring-1 ring-white/15 backdrop-blur-xl lg:hidden">
         <div className="min-w-0 flex-1 px-3">
           <p className="truncate text-xs font-medium text-sand-50">{isDirty ? "Unsaved changes" : "All changes saved"}</p>
-          <p className="truncate text-[10px] uppercase tracking-[0.16em] text-sand-300/60">{activeTab === "blocks" ? "Blocks editor" : "Profile editor"}</p>
+          <p className="truncate text-[10px] uppercase tracking-[0.16em] text-sand-300/60">{activeTab === "blocks" ? "Blocks editor" : activeTab === "projects" ? "Projects editor" : "Profile editor"}</p>
         </div>
         <Button type="button" variant="secondary" disabled={!canSave} onClick={() => void saveWorkspace("save")}>
           {savingAction === "save" ? "Saving" : "Save"}

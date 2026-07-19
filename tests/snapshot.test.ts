@@ -3,6 +3,7 @@ import {
   buildPublicProfileSnapshot,
   splitVisibleLinks,
 } from "@/lib/snapshot";
+import type { ProfileProjectDraft } from "@/types/nodivra";
 
 describe("public snapshot helpers", () => {
   it("sorts and filters links before publishing", () => {
@@ -182,5 +183,78 @@ describe("public snapshot helpers", () => {
       "First",
       "Second",
     ]);
+  });
+
+  it("publishes only selected projects in stable order", () => {
+    const profile = {
+      id: "11111111-1111-1111-1111-111111111111",
+      ownerId: "11111111-1111-1111-1111-111111111111",
+      handle: "jamie-fontanilla",
+      displayName: "Jamie Fontanilla",
+      headline: "",
+      bio: "",
+      locationText: "",
+      timezone: "UTC",
+      avatarInitials: "JF",
+      avatarUrl: "",
+      primaryCtaLabel: "",
+      primaryCtaUrl: "",
+      availabilityStatus: "available" as const,
+      isPublished: false,
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+    const projects: ProfileProjectDraft[] = [
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        profileId: profile.id,
+        slug: "second-project",
+        projectName: "Second project",
+        shortSummary: "Second summary",
+        caseStudyMarkdown: "## Second",
+        role: "Engineer",
+        technologies: ["TypeScript"],
+        projectType: "product",
+        startDate: "",
+        endDate: "",
+        status: "shipped",
+        coverImageUrl: "",
+        lessonsLearned: "",
+        tags: [],
+        isFeatured: false,
+        isPublished: true,
+        position: 1,
+        links: [],
+        createdAt: "2026-07-18T00:00:02.000Z",
+        updatedAt: "2026-07-18T00:00:02.000Z",
+      },
+      {
+        id: "33333333-3333-4333-8333-333333333333",
+        profileId: profile.id,
+        slug: "private-project",
+        projectName: "Private project",
+        shortSummary: "Private summary",
+        caseStudyMarkdown: "## Private",
+        role: "Engineer",
+        technologies: [],
+        projectType: "experiment",
+        startDate: "",
+        endDate: "",
+        status: "in_progress",
+        coverImageUrl: "",
+        lessonsLearned: "",
+        tags: [],
+        isFeatured: false,
+        isPublished: false,
+        position: 0,
+        links: [],
+        createdAt: "2026-07-18T00:00:01.000Z",
+        updatedAt: "2026-07-18T00:00:01.000Z",
+      },
+    ];
+
+    const snapshot = buildPublicProfileSnapshot(profile, [], profile.updatedAt, [], [], projects);
+
+    expect(snapshot.publishedProjects.map((project) => project.projectName)).toEqual(["Second project"]);
   });
 });

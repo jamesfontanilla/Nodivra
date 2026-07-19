@@ -5,6 +5,8 @@ import {
   type ProfileBlockDraft,
   type ProfileDraft,
   type ProfileLinkDraft,
+  type ProfileProjectDraft,
+  type ProjectLinkDraft,
   type ProfileSectionDraft,
   type WorkspaceSnapshot,
 } from "@/types/nodivra";
@@ -174,6 +176,7 @@ function createDemoBlocks(
         role: "Product design and systems",
         technologies: ["Next.js", "TypeScript", "Supabase"],
         url: "https://example.com/signal",
+        projectId: "4c0f8f13-0c2b-4b0e-9001-000000000001",
       },
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -279,6 +282,105 @@ function createDemoBlocks(
   ];
 }
 
+function createDemoProjects(profileId: string): ProfileProjectDraft[] {
+  const timestamp = now();
+  const createLink = (
+    id: string,
+    projectId: string,
+    kind: ProjectLinkDraft["kind"],
+    label: string,
+    url: string,
+    position: number,
+  ): ProjectLinkDraft => ({
+    id,
+    projectId,
+    kind,
+    label,
+    url,
+    position,
+    isEnabled: true,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+
+  return [
+    {
+      id: "4c0f8f13-0c2b-4b0e-9001-000000000001",
+      profileId,
+      slug: "signal",
+      projectName: "Signal",
+      shortSummary: "A calm operating surface for teams shipping complex developer products.",
+      caseStudyMarkdown: "## The brief\n\nSignal gave a platform team a clearer way to move from an incoming request to an owned, observable decision.\n\n## What changed\n\nI shaped the information architecture, interaction model, and visual language around one principle: make the next good decision obvious.\n\n- Reframed the work queue around intent\n- Reduced noisy status states\n- Created reusable patterns for handoffs",
+      role: "Product design and systems",
+      technologies: ["Next.js", "TypeScript", "Supabase"],
+      projectType: "product",
+      startDate: "2025-02-01",
+      endDate: "2025-08-01",
+      status: "shipped",
+      coverImageUrl: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80",
+      lessonsLearned: "Complex tools become easier to trust when their system status is visible without becoming the main event.",
+      tags: ["platform", "systems", "product design"],
+      isFeatured: true,
+      isPublished: true,
+      position: 0,
+      links: [
+        createLink("5c0f8f13-0c2b-4b0e-9001-000000000001", "4c0f8f13-0c2b-4b0e-9001-000000000001", "live", "Read the project", "https://example.com/signal", 0),
+        createLink("5c0f8f13-0c2b-4b0e-9001-000000000002", "4c0f8f13-0c2b-4b0e-9001-000000000001", "repository", "Repository", "https://github.com/example/signal", 1),
+      ],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "4c0f8f13-0c2b-4b0e-9001-000000000002",
+      profileId,
+      slug: "quiet-hours",
+      projectName: "Quiet Hours",
+      shortSummary: "A small experiment in making team availability feel humane and legible.",
+      caseStudyMarkdown: "## The question\n\nWhat if availability was a shared context instead of another notification?\n\nI explored a lightweight pattern for communicating focus time, timezone, and response expectations without adding another dashboard.",
+      role: "Independent experiment",
+      technologies: ["React", "CSS", "Accessibility"],
+      projectType: "experiment",
+      startDate: "2024-10-01",
+      endDate: "2024-12-01",
+      status: "shipped",
+      coverImageUrl: "",
+      lessonsLearned: "Small pieces of context can remove more anxiety than another layer of status reporting.",
+      tags: ["experiment", "accessibility"],
+      isFeatured: true,
+      isPublished: true,
+      position: 1,
+      links: [
+        createLink("5c0f8f13-0c2b-4b0e-9001-000000000003", "4c0f8f13-0c2b-4b0e-9001-000000000002", "demo", "Open the demo", "https://example.com/quiet-hours", 0),
+      ],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "4c0f8f13-0c2b-4b0e-9001-000000000003",
+      profileId,
+      slug: "field-notes",
+      projectName: "Field Notes",
+      shortSummary: "A writing surface for turning observations into reusable product principles.",
+      caseStudyMarkdown: "## The idea\n\nField Notes is a living archive of small product observations, organized around the decisions they unlock.\n\nIt is intentionally unfinished and remains a work in progress.",
+      role: "Writing system",
+      technologies: ["Markdown", "Information architecture"],
+      projectType: "open_source",
+      startDate: "2026-01-01",
+      endDate: "",
+      status: "in_progress",
+      coverImageUrl: "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=1200&q=80",
+      lessonsLearned: "A useful archive needs a point of view, not just a search box.",
+      tags: ["writing", "open source"],
+      isFeatured: false,
+      isPublished: true,
+      position: 2,
+      links: [],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ];
+}
+
 function createAuditLogs(profileId: string): AuditLogEntry[] {
   const timestamp = now();
   return [
@@ -303,17 +405,20 @@ function createDemoStore(): WorkspaceSnapshot {
   const links = createDemoLinks(profile.id);
   const sections = createDemoSections(profile.id);
   const blocks = createDemoBlocks(profile.id, sections);
+  const projects = createDemoProjects(profile.id);
   return {
     profile,
     links,
     sections,
     blocks,
+    projects,
     published: buildPublicProfileSnapshot(
       profile,
       links,
       profile.updatedAt,
       sections,
       blocks,
+      projects,
     ),
     auditLogs: createAuditLogs(profile.id),
     mode: "demo",
@@ -349,6 +454,7 @@ export function getDemoWorkspaceSnapshot(): WorkspaceSnapshot {
     links: structuredClone(store.links),
     sections: structuredClone(store.sections),
     blocks: structuredClone(store.blocks),
+    projects: structuredClone(store.projects),
     published: structuredClone(store.published),
     auditLogs: structuredClone(store.auditLogs),
     mode: "demo",

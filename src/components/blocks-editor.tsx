@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PublicBlocks } from "@/components/public-blocks";
+import { draftToPublicProject } from "@/components/project-detail";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -21,6 +22,7 @@ import type {
   ImageCardConfiguration,
   LinkButtonConfiguration,
   ProfileBlockDraft,
+  ProfileProjectDraft,
   ProfileSectionDraft,
   ProjectHighlightConfiguration,
   SocialLinkConfiguration,
@@ -132,9 +134,11 @@ function blockLabel(type: BlockType) {
 function BlockConfigurationFields({
   block,
   onChange,
+  projects,
 }: {
   block: ProfileBlockDraft;
   onChange: (key: string, value: unknown) => void;
+  projects: ProfileProjectDraft[];
 }) {
   const config = block.configuration;
   switch (block.type) {
@@ -168,6 +172,12 @@ function BlockConfigurationFields({
           <FieldShell label="Role" hint="Optional role or contribution."><Input value={value.role} onChange={(event) => onChange("role", event.target.value)} /></FieldShell>
           <FieldShell label="Case study URL" hint="Optional http or https URL."><Input value={value.url} onChange={(event) => onChange("url", event.target.value)} /></FieldShell>
           <FieldShell label="Technologies" hint="Comma-separated, up to six."><Input value={value.technologies.join(", ")} onChange={(event) => onChange("technologies", event.target.value.split(",").map((item) => item.trim()).filter(Boolean))} /></FieldShell>
+          <FieldShell label="Linked project" hint="Optional Nodivra case study.">
+            <Select value={value.projectId ?? ""} onChange={(event) => onChange("projectId", event.target.value)}>
+              <option value="">No linked project</option>
+              {projects.map((project) => <option key={project.id} value={project.id}>{project.projectName}</option>)}
+            </Select>
+          </FieldShell>
           <FieldShell label="Summary" hint="220 characters or fewer."><Textarea value={value.summary} onChange={(event) => onChange("summary", event.target.value)} /></FieldShell>
         </div>
       );
@@ -238,12 +248,14 @@ export function BlocksEditor({
   profileId,
   sections,
   blocks,
+  projects,
   onChange,
   fieldErrors,
 }: {
   profileId: string;
   sections: ProfileSectionDraft[];
   blocks: ProfileBlockDraft[];
+  projects: ProfileProjectDraft[];
   onChange: (sections: ProfileSectionDraft[], blocks: ProfileBlockDraft[]) => void;
   fieldErrors: Record<string, string>;
 }) {
@@ -388,7 +400,7 @@ export function BlocksEditor({
         <div className="rounded-[2rem] bg-white/5 p-1.5 ring-1 ring-white/10">
           <div className="rounded-[1.625rem] bg-ink-950/88 px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:px-6">
             <div className="mb-3 flex items-center justify-between gap-4"><p className="text-xs uppercase tracking-[0.2em] text-sand-300/70">Block preview</p><Badge tone="muted">Draft only</Badge></div>
-            {previewSections.length > 0 && previewBlocks.length > 0 ? <PublicBlocks sections={previewSections} blocks={previewBlocks} /> : <EmptyState title="Nothing visible yet" description="Add a section and a public block to see the composition here." />}
+            {previewSections.length > 0 && previewBlocks.length > 0 ? <PublicBlocks sections={previewSections} blocks={previewBlocks} projects={projects.map(draftToPublicProject)} /> : <EmptyState title="Nothing visible yet" description="Add a section and a public block to see the composition here." />}
           </div>
         </div>
       ) : null}
@@ -487,7 +499,7 @@ export function BlocksEditor({
                   <FieldShell label="Block title" hint="1 to 80 characters.">
                     <Input value={selectedBlock.title} onChange={(event) => patchBlock(selectedBlock.id, "title", event.target.value)} />
                   </FieldShell>
-                  <BlockConfigurationFields block={selectedBlock} onChange={(key, value) => patchConfiguration(selectedBlock.id, key, value)} />
+                  <BlockConfigurationFields block={selectedBlock} projects={projects} onChange={(key, value) => patchConfiguration(selectedBlock.id, key, value)} />
                 </div>
               </div>
             ) : (

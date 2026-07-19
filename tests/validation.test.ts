@@ -4,12 +4,41 @@ import {
   getInitials,
   isSafeHttpUrl,
   normalizeHandle,
+  projectDraftSchema,
   profileBlockDraftSchema,
   profileDraftSchema,
   workspaceDraftSchema,
 } from "@/lib/validation";
 
 describe("validation helpers", () => {
+  const profileId = "11111111-1111-1111-1111-111111111111";
+
+  function projectDraft(id: string, position: number, isFeatured = false) {
+    return {
+      id,
+      profileId,
+      slug: `project-${position}`,
+      projectName: `Project ${position}`,
+      shortSummary: "A concise project summary.",
+      caseStudyMarkdown: "## Brief\n\nA bounded case study.",
+      role: "Product engineer",
+      technologies: ["TypeScript", "Postgres"],
+      projectType: "product",
+      startDate: "2026-01-01",
+      endDate: "",
+      status: "shipped",
+      coverImageUrl: "",
+      lessonsLearned: "Keep the scope clear.",
+      tags: ["web"],
+      isFeatured,
+      isPublished: false,
+      position,
+      links: [],
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+  }
+
   it("normalizes handles and suggestions", () => {
     expect(normalizeHandle("@Jamie-Doe/")).toBe("jamie-doe");
     expect(buildHandleSuggestion("Jamie Doe!!")).toBe("jamiedoe");
@@ -91,6 +120,92 @@ describe("validation helpers", () => {
     });
 
     expect(workspace.success).toBe(true);
+  });
+
+  it("keeps project case studies bounded and links safe", () => {
+    const valid = projectDraftSchema.safeParse(projectDraft("22222222-2222-4222-8222-222222222222", 0));
+    const unsafeUrl = projectDraftSchema.safeParse({
+      ...projectDraft("33333333-3333-4333-8333-333333333333", 1),
+      coverImageUrl: "javascript:alert(1)",
+    });
+    const invalidDates = projectDraftSchema.safeParse({
+      ...projectDraft("44444444-4444-4444-8444-444444444444", 2),
+      startDate: "2026-06-01",
+      endDate: "2026-05-01",
+    });
+    const duplicateLinkKinds = projectDraftSchema.safeParse({
+      ...projectDraft("55555555-5555-4555-8555-555555555555", 3),
+      links: [
+        {
+          id: "66666666-6666-4666-8666-666666666666",
+          projectId: "55555555-5555-4555-8555-555555555555",
+          kind: "live",
+          label: "Live URL",
+          url: "https://example.com/live",
+          position: 0,
+          isEnabled: true,
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+        },
+        {
+          id: "77777777-7777-4777-8777-777777777777",
+          projectId: "55555555-5555-4555-8555-555555555555",
+          kind: "live",
+          label: "Another live URL",
+          url: "https://example.com/another",
+          position: 1,
+          isEnabled: true,
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(valid.success).toBe(true);
+    expect(unsafeUrl.success).toBe(false);
+    expect(invalidDates.success).toBe(false);
+    expect(duplicateLinkKinds.success).toBe(false);
+  });
+
+  it("limits featured projects and keeps projects profile-scoped", () => {
+    const profile = {
+      handle: "jamie-fontanilla",
+      displayName: "Jamie Fontanilla",
+      headline: "",
+      bio: "",
+      locationText: "",
+      timezone: "UTC",
+      avatarInitials: "JF",
+      avatarUrl: "",
+      primaryCtaLabel: "",
+      primaryCtaUrl: "",
+      availabilityStatus: "available",
+      isPublished: false,
+    };
+    const workspace = workspaceDraftSchema.safeParse({
+      profile,
+      links: [],
+      projects: [
+        projectDraft("88888888-8888-4888-8888-888888888888", 0, true),
+        projectDraft("99999999-9999-4999-8999-999999999999", 1, true),
+        projectDraft("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", 2, true),
+        projectDraft("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", 3, true),
+      ],
+    });
+
+    expect(workspace.success).toBe(false);
+
+    const foreignProject = {
+      ...projectDraft("cccccccc-cccc-4ccc-8ccc-cccccccccccc", 0),
+      profileId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    };
+    const ownership = workspaceDraftSchema.safeParse({
+      profile,
+      links: [],
+      projects: [foreignProject],
+    });
+
+    expect(ownership.success).toBe(false);
   });
 
   it("rejects unsafe or untyped block configurations", () => {

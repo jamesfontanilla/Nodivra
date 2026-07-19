@@ -5,6 +5,7 @@ import {
   buildPublicProfileSnapshot,
   sortBlocks,
   sortLinks,
+  sortProjects,
   sortSections,
 } from "@/lib/snapshot";
 import {
@@ -12,12 +13,14 @@ import {
   isReservedHandle,
   profileBlockDraftSchema,
   profileDraftSchema,
+  projectDraftSchema,
   publicProfileSnapshotSchema,
   toFieldErrors,
   workspaceDraftSchema,
   type ProfileBlockDraftInput,
   type ProfileLinkDraftInput,
   type ProfileDraftInput,
+  type ProfileProjectDraftInput,
   type ProfileSectionDraftInput,
   type WorkspaceDraftInput,
 } from "@/lib/validation";
@@ -30,6 +33,11 @@ import {
   type BlockType,
   type BlockVisibility,
   type ProfileBlockDraft,
+  type ProfileProjectDraft,
+  type ProjectLinkDraft,
+  type ProjectLinkKind,
+  type ProjectStatus,
+  type ProjectType,
   type LinkVisibility,
   type ProfileDraft,
   type ProfileLinkDraft,
@@ -99,6 +107,61 @@ type ProfileBlocksRow = {
   deleted_at: string | null;
 };
 
+type ProjectsRow = {
+  id: string;
+  profile_id: string;
+  slug: string;
+  project_name: string;
+  short_summary: string;
+  case_study_markdown: string;
+  role: string;
+  project_type: ProjectType;
+  start_date: string | null;
+  end_date: string | null;
+  status: ProjectStatus;
+  cover_image_url: string | null;
+  lessons_learned: string;
+  is_featured: boolean;
+  is_published: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+type ProjectTechnologiesRow = {
+  id: string;
+  profile_id: string;
+  project_id: string;
+  technology: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type ProjectTagsRow = {
+  id: string;
+  profile_id: string;
+  project_id: string;
+  tag: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type ProjectLinksRow = {
+  id: string;
+  profile_id: string;
+  project_id: string;
+  kind: ProjectLinkKind;
+  label: string;
+  url: string;
+  position: number;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 type PublicProfileSettingsRow = {
   id: string;
   profile_id: string;
@@ -116,6 +179,7 @@ type PublicProfileSettingsRow = {
   published_links: unknown;
   published_sections: unknown;
   published_blocks: unknown;
+  published_projects: unknown;
   is_published: boolean;
   published_at: string | null;
   updated_at: string;
@@ -193,6 +257,7 @@ export function createBlankWorkspace(
     links: [],
     sections: [createStarterSection(ownerId)],
     blocks: [],
+    projects: [],
     published: null,
     auditLogs: [],
     mode,
@@ -266,6 +331,86 @@ function blockRowToDraft(row: ProfileBlocksRow): ProfileBlockDraft | null {
   return parsed.success ? parsed.data : null;
 }
 
+function projectLinkRowToDraft(row: ProjectLinksRow): ProjectLinkDraft {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    kind: row.kind,
+    label: row.label,
+    url: row.url,
+    position: row.position,
+    isEnabled: row.is_enabled,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function projectRowToDraft(
+  row: ProjectsRow,
+  technologies: ProjectTechnologiesRow[],
+  links: ProjectLinksRow[],
+  tags: ProjectTagsRow[],
+): ProfileProjectDraft | null {
+  const candidate = {
+    id: row.id,
+    profileId: row.profile_id,
+    slug: row.slug,
+    projectName: row.project_name,
+    shortSummary: row.short_summary,
+    caseStudyMarkdown: row.case_study_markdown,
+    role: row.role,
+    technologies: [...technologies]
+      .sort((left, right) => left.position - right.position)
+      .map((technology) => technology.technology),
+    projectType: row.project_type,
+    startDate: row.start_date ?? "",
+    endDate: row.end_date ?? "",
+    status: row.status,
+    coverImageUrl: row.cover_image_url ?? "",
+    lessonsLearned: row.lessons_learned,
+    tags: [...tags]
+      .sort((left, right) => left.position - right.position)
+      .map((tag) => tag.tag),
+    isFeatured: row.is_featured,
+    isPublished: row.is_published,
+    position: row.position,
+    links: links
+      .sort((left, right) => left.position - right.position)
+      .map(projectLinkRowToDraft),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+
+  const parsed = projectDraftSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
+}
+
+function normalizeProjectDrafts(
+  profileId: string,
+  projects: ProfileProjectDraftInput[],
+  existingProjects: ProfileProjectDraft[] = [],
+) {
+  const timestamp = nowIso();
+  const existingById = new Map(existingProjects.map((project) => [project.id, project]));
+  return sortProjects(projects).map<ProfileProjectDraft>((project, position) => {
+    const existing = existingById.get(project.id);
+    return {
+      ...project,
+      profileId,
+      position,
+      links: project.links.map((link, linkPosition) => ({
+        ...link,
+        projectId: project.id,
+        position: linkPosition,
+        createdAt: existing?.links.find((item) => item.id === link.id)?.createdAt ?? link.createdAt ?? timestamp,
+        updatedAt: timestamp,
+      })),
+      createdAt: existing?.createdAt ?? project.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    };
+  });
+}
+
 function auditRowToEntry(row: AuditLogsRow): AuditLogEntry {
   return {
     id: row.id,
@@ -311,6 +456,7 @@ function publicRowToSnapshot(row: PublicProfileSettingsRow): PublicProfileSnapsh
     publishedLinks: Array.isArray(row.published_links) ? row.published_links : [],
     publishedSections: Array.isArray(row.published_sections) ? row.published_sections : [],
     publishedBlocks: Array.isArray(row.published_blocks) ? row.published_blocks : [],
+    publishedProjects: Array.isArray(row.published_projects) ? row.published_projects : [],
     publishedAt: row.published_at ?? row.updated_at,
     isPublished: row.is_published,
   };
@@ -452,6 +598,96 @@ function mapBlockInputsToRows(
   });
 }
 
+function mapProjectInputsToRows(
+  profileId: string,
+  projects: ProfileProjectDraftInput[],
+  existingProjects: Array<{ id: string; created_at?: string; createdAt?: string }>,
+): ProjectsRow[] {
+  const timestamp = nowIso();
+  const existingById = new Map(existingProjects.map((project) => [project.id, project]));
+
+  return sortProjects(projects).map((project, position) => {
+    const existing = existingById.get(project.id);
+    return {
+      id: project.id,
+      profile_id: profileId,
+      slug: project.slug.trim().toLowerCase(),
+      project_name: project.projectName.trim(),
+      short_summary: project.shortSummary.trim(),
+      case_study_markdown: project.caseStudyMarkdown.trim(),
+      role: project.role.trim(),
+      project_type: project.projectType,
+      start_date: project.startDate || null,
+      end_date: project.endDate || null,
+      status: project.status,
+      cover_image_url: project.coverImageUrl.trim() || null,
+      lessons_learned: project.lessonsLearned.trim(),
+      is_featured: project.isFeatured,
+      is_published: project.isPublished,
+      position,
+      created_at: existing?.created_at ?? existing?.createdAt ?? project.createdAt ?? timestamp,
+      updated_at: timestamp,
+      deleted_at: null,
+    };
+  });
+}
+
+function mapProjectTechnologiesToRows(
+  profileId: string,
+  projects: ProfileProjectDraftInput[],
+): ProjectTechnologiesRow[] {
+  const timestamp = nowIso();
+  return projects.flatMap((project) => project.technologies.map((technology, position) => ({
+    id: randomUUID(),
+    profile_id: profileId,
+    project_id: project.id,
+    technology: technology.trim(),
+    position,
+    created_at: timestamp,
+    updated_at: timestamp,
+  })));
+}
+
+function mapProjectTagsToRows(
+  profileId: string,
+  projects: ProfileProjectDraftInput[],
+): ProjectTagsRow[] {
+  const timestamp = nowIso();
+  return projects.flatMap((project) => project.tags.map((tag, position) => ({
+    id: randomUUID(),
+    profile_id: profileId,
+    project_id: project.id,
+    tag: tag.trim(),
+    position,
+    created_at: timestamp,
+    updated_at: timestamp,
+  })));
+}
+
+function mapProjectLinksToRows(
+  profileId: string,
+  projects: ProfileProjectDraftInput[],
+  existingLinks: Array<{ id: string; created_at?: string; createdAt?: string }>,
+): ProjectLinksRow[] {
+  const timestamp = nowIso();
+  const existingById = new Map(existingLinks.map((link) => [link.id, link]));
+  return projects.flatMap((project) => project.links.map((link, position) => {
+    const existing = existingById.get(link.id);
+    return {
+      id: link.id,
+      profile_id: profileId,
+      project_id: project.id,
+      kind: link.kind,
+      label: link.label.trim(),
+      url: link.url.trim(),
+      position,
+      is_enabled: link.isEnabled,
+      created_at: existing?.created_at ?? existing?.createdAt ?? link.createdAt ?? timestamp,
+      updated_at: timestamp,
+    };
+  }));
+}
+
 function createAuditRow(
   profileId: string,
   actorId: string,
@@ -490,7 +726,7 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
   }
 
   const profileId = profileRow.id;
-  const [linksResult, sectionsResult, blocksResult, publicResult, auditResult] = await Promise.all([
+  const [linksResult, sectionsResult, blocksResult, projectsResult, projectTechnologiesResult, projectLinksResult, projectTagsResult, publicResult, auditResult] = await Promise.all([
     client
       .from("profile_links")
       .select("*")
@@ -513,6 +749,31 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       .order("position", { ascending: true })
       .limit(60),
     client
+      .from("projects")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null)
+      .order("position", { ascending: true })
+      .limit(30),
+    client
+      .from("project_technologies")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(240),
+    client
+      .from("project_links")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(90),
+    client
+      .from("project_tags")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(240),
+    client
       .from("public_profile_settings")
       .select("*")
       .eq("profile_id", profileId)
@@ -531,6 +792,20 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
   const blocks = (blocksResult.data ?? [])
     .map((row) => blockRowToDraft(row as ProfileBlocksRow))
     .filter((block): block is ProfileBlockDraft => block !== null);
+  const projectTechnologies = (projectTechnologiesResult.data ?? []) as ProjectTechnologiesRow[];
+  const projectLinks = (projectLinksResult.data ?? []) as ProjectLinksRow[];
+  const projectTags = (projectTagsResult.data ?? []) as ProjectTagsRow[];
+  const projects = (projectsResult.data ?? [])
+    .map((row) => {
+      const project = row as ProjectsRow;
+      return projectRowToDraft(
+        project,
+        projectTechnologies.filter((item) => item.project_id === project.id),
+        projectLinks.filter((item) => item.project_id === project.id),
+        projectTags.filter((item) => item.project_id === project.id),
+      );
+    })
+    .filter((project): project is ProfileProjectDraft => project !== null);
   const published = publicResult.data ? publicRowToSnapshot(publicResult.data) : null;
   const auditLogs = (auditResult.data ?? []).map(auditRowToEntry);
 
@@ -539,6 +814,7 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
     links,
     sections,
     blocks,
+    projects,
     published,
     auditLogs,
     mode: "authenticated",
@@ -611,6 +887,16 @@ export async function getPublicProfile(handle: string): Promise<PublicProfileSna
   return publicRowToSnapshot(data);
 }
 
+export async function getPublicProject(handle: string, slug: string) {
+  const profile = await getPublicProfile(handle);
+  if (!profile) {
+    return null;
+  }
+
+  const project = profile.publishedProjects.find((item) => item.slug === slug.trim().toLowerCase());
+  return project ? { profile, project } : null;
+}
+
 async function persistDemoWorkspace(
   input: WorkspaceDraftInput,
   publish: boolean,
@@ -650,10 +936,16 @@ async function persistDemoWorkspace(
   )
     .map(blockRowToDraft)
     .filter((block): block is ProfileBlockDraft => block !== null);
+  const nextProjects = normalizeProjectDrafts(
+    nextProfile.id,
+    input.projects,
+    store.projects,
+  );
   store.profile = nextProfile;
   store.links = nextLinks.map(linkRowToDraft);
   store.sections = nextSections;
   store.blocks = nextBlocks;
+  store.projects = nextProjects;
   store.published = publish
     ? buildPublicProfileSnapshot(
         nextProfile,
@@ -661,6 +953,7 @@ async function persistDemoWorkspace(
         nextProfile.updatedAt,
         store.sections,
         store.blocks,
+        store.projects,
       )
     : store.published;
   store.auditLogs = [
@@ -669,13 +962,14 @@ async function persistDemoWorkspace(
       nextProfile.ownerId,
       publish ? "profile_published" : "profile_saved",
       publish
-        ? `Published ${store.links.length} links and ${store.blocks.length} blocks`
-        : `Saved ${store.links.length} links and ${store.blocks.length} blocks`,
+        ? `Published ${store.links.length} links, ${store.blocks.length} blocks, and ${store.projects.length} projects`
+        : `Saved ${store.links.length} links, ${store.blocks.length} blocks, and ${store.projects.length} projects`,
       {
         published: publish,
         linkCount: store.links.length,
         blockCount: store.blocks.length,
         sectionCount: store.sections.length,
+        projectCount: store.projects.length,
       },
     ),
     ...store.auditLogs,
@@ -807,7 +1101,7 @@ async function persistSupabaseWorkspace(
     }
   }
 
-  const [{ data: existingSectionsMany }, { data: existingBlocksMany }] = await Promise.all([
+  const [{ data: existingSectionsMany }, { data: existingBlocksMany }, { data: existingProjectsMany }, { data: existingProjectLinksMany }] = await Promise.all([
     client
       .from("profile_sections")
       .select("*")
@@ -818,6 +1112,15 @@ async function persistSupabaseWorkspace(
       .select("*")
       .eq("profile_id", profileId)
       .is("deleted_at", null),
+    client
+      .from("projects")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null),
+    client
+      .from("project_links")
+      .select("id, created_at")
+      .eq("profile_id", profileId),
   ]);
 
   const nextSections = mapSectionInputsToRows(
@@ -894,6 +1197,78 @@ async function persistSupabaseWorkspace(
     }
   }
 
+  const nextProjects = mapProjectInputsToRows(
+    profileId,
+    input.projects,
+    (existingProjectsMany ?? []) as ProjectsRow[],
+  );
+  const nextProjectDrafts = normalizeProjectDrafts(profileId, input.projects);
+  if (nextProjects.length > 0) {
+    const { error: projectUpsertError } = await client.from("projects").upsert(nextProjects);
+    if (projectUpsertError) {
+      return {
+        ok: false,
+        message: projectUpsertError.message,
+        fieldErrors: {},
+      };
+    }
+  }
+
+  const staleProjectIds = (existingProjectsMany ?? [])
+    .map((project) => project.id)
+    .filter((id) => !nextProjects.some((project) => project.id === id));
+
+  const childTables = ["project_technologies", "project_tags", "project_links"] as const;
+  for (const table of childTables) {
+    const { error: childDeleteError } = await client
+      .from(table)
+      .delete()
+      .eq("profile_id", profileId);
+    if (childDeleteError) {
+      return {
+        ok: false,
+        message: childDeleteError.message,
+        fieldErrors: {},
+      };
+    }
+  }
+
+  const projectTechnologies = mapProjectTechnologiesToRows(profileId, input.projects);
+  const projectTags = mapProjectTagsToRows(profileId, input.projects);
+  const projectLinks = mapProjectLinksToRows(
+    profileId,
+    input.projects,
+    (existingProjectLinksMany ?? []) as Array<{ id: string; created_at?: string }>,
+  );
+  if (projectTechnologies.length > 0) {
+    const { error } = await client.from("project_technologies").insert(projectTechnologies);
+    if (error) {
+      return { ok: false, message: error.message, fieldErrors: {} };
+    }
+  }
+  if (projectTags.length > 0) {
+    const { error } = await client.from("project_tags").insert(projectTags);
+    if (error) {
+      return { ok: false, message: error.message, fieldErrors: {} };
+    }
+  }
+  if (projectLinks.length > 0) {
+    const { error } = await client.from("project_links").insert(projectLinks);
+    if (error) {
+      return { ok: false, message: error.message, fieldErrors: {} };
+    }
+  }
+  if (staleProjectIds.length > 0) {
+    const { error: projectDeleteError } = await client
+      .from("projects")
+      .delete()
+      .eq("profile_id", profileId)
+      .in("id", staleProjectIds);
+    if (projectDeleteError) {
+      return { ok: false, message: projectDeleteError.message, fieldErrors: {} };
+    }
+  }
+
   if (publish) {
     const published = buildPublicProfileSnapshot(
       profileRowToDraft(profileRow),
@@ -903,6 +1278,7 @@ async function persistSupabaseWorkspace(
       nextBlocks
         .map(blockRowToDraft)
         .filter((block): block is ProfileBlockDraft => block !== null),
+      nextProjectDrafts,
     );
     const publicRow = {
       profile_id: profileId,
@@ -920,6 +1296,7 @@ async function persistSupabaseWorkspace(
       published_links: published.publishedLinks,
       published_sections: published.publishedSections,
       published_blocks: published.publishedBlocks,
+      published_projects: published.publishedProjects,
       is_published: true,
       published_at: nowIso(),
       updated_at: nowIso(),
@@ -943,13 +1320,14 @@ async function persistSupabaseWorkspace(
     viewer.userId,
     publish ? "profile_published" : "profile_saved",
     publish
-      ? `Published ${nextLinks.length} links and ${nextBlocks.length} blocks`
-      : `Saved ${nextLinks.length} links and ${nextBlocks.length} blocks`,
+      ? `Published ${nextLinks.length} links, ${nextBlocks.length} blocks, and ${nextProjects.length} projects`
+      : `Saved ${nextLinks.length} links, ${nextBlocks.length} blocks, and ${nextProjects.length} projects`,
     {
       published: publish,
       linkCount: nextLinks.length,
       blockCount: nextBlocks.length,
       sectionCount: nextSections.length,
+      projectCount: nextProjects.length,
       handle: profileRow.handle,
     },
   );

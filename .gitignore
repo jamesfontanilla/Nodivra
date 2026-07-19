@@ -8,4 +8,6 @@ coverage/
 .env.*
 !.env.example
 .agents/
-/supabase/
+/supabase/*
+!/supabase/migrations/
+!/supabase/migrations/**

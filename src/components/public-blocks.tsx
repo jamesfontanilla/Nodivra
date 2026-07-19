@@ -18,6 +18,7 @@ import type {
   LinkButtonConfiguration,
   ProjectHighlightConfiguration,
   PublicBlockSnapshot,
+  PublicProjectSnapshot,
   PublicSectionSnapshot,
   SocialLinkConfiguration,
   TextSectionConfiguration,
@@ -93,7 +94,7 @@ function ctaAccent(accent: CtaCardConfiguration["accent"]) {
   }
 }
 
-function renderBlock(block: PublicBlockSnapshot) {
+function renderBlock(block: PublicBlockSnapshot, projects: PublicProjectSnapshot[], profileHandle?: string) {
   switch (block.type) {
     case "link_button": {
       const config = block.configuration as LinkButtonConfiguration;
@@ -133,30 +134,38 @@ function renderBlock(block: PublicBlockSnapshot) {
     }
     case "project_highlight": {
       const config = block.configuration as ProjectHighlightConfiguration;
+      const linkedProject = config.projectId ? projects.find((project) => project.id === config.projectId) : undefined;
+      const projectName = linkedProject?.projectName ?? config.projectName;
+      const projectSummary = linkedProject?.shortSummary ?? config.summary;
+      const projectRole = linkedProject?.role || config.role;
+      const projectTechnologies = linkedProject?.technologies ?? config.technologies;
+      const projectHref = linkedProject && profileHandle
+        ? `/u/${profileHandle}/projects/${linkedProject.slug}`
+        : config.url;
       return (
         <BlockShell title={block.title} className="bg-sand-100/10">
           <div className="flex h-full flex-col justify-between gap-8">
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <Badge tone="accent">Project highlight</Badge>
-                {config.role ? <span className="text-xs text-sand-300/70">{config.role}</span> : null}
+                {projectRole ? <span className="text-xs text-sand-300/70">{projectRole}</span> : null}
               </div>
               <h3 className="font-display text-3xl leading-tight tracking-tight text-sand-50 sm:text-4xl">
-                {config.projectName}
+                {projectName}
               </h3>
-              <p className="max-w-xl text-sm leading-7 text-sand-200/80">{config.summary}</p>
+              <p className="max-w-xl text-sm leading-7 text-sand-200/80">{projectSummary}</p>
             </div>
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div className="flex flex-wrap gap-2">
-                {config.technologies.map((technology) => (
+                {projectTechnologies.map((technology) => (
                   <span key={technology} className="rounded-full bg-white/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-sand-200/80 ring-1 ring-white/10">
                     {technology}
                   </span>
                 ))}
               </div>
-              {config.url ? (
-                <a href={config.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm text-sand-50 underline decoration-white/20 underline-offset-4 transition-[transform,color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:text-sand-200">
-                  View case study <ArrowUpRightIcon className="h-4 w-4" />
+              {projectHref ? (
+                <a href={projectHref} target={linkedProject ? undefined : "_blank"} rel={linkedProject ? undefined : "noreferrer"} className="inline-flex items-center gap-2 text-sm text-sand-50 underline decoration-white/20 underline-offset-4 transition-[transform,color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:text-sand-200">
+                  {linkedProject ? "Read case study" : "View case study"} <ArrowUpRightIcon className="h-4 w-4" />
                 </a>
               ) : null}
             </div>
@@ -255,9 +264,13 @@ function renderBlock(block: PublicBlockSnapshot) {
 export function PublicBlocks({
   sections,
   blocks,
+  projects = [],
+  profileHandle,
 }: {
   sections: PublicSectionSnapshot[];
   blocks: PublicBlockSnapshot[];
+  projects?: PublicProjectSnapshot[];
+  profileHandle?: string;
 }) {
   if (sections.length === 0 || blocks.length === 0) {
     return null;
@@ -303,7 +316,7 @@ export function PublicBlocks({
             <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
               {sectionBlocks.map((block) => (
                 <div key={block.id} className={cn("col-span-1", blockWidth(block.type))}>
-                  {renderBlock(block)}
+                  {renderBlock(block, projects, profileHandle)}
                 </div>
               ))}
             </div>

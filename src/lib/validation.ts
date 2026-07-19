@@ -3,6 +3,9 @@ import {
   AVAILABILITY_STATUSES,
   BLOCK_VISIBILITIES,
   LINK_VISIBILITIES,
+  PROJECT_LINK_KINDS,
+  PROJECT_STATUSES,
+  PROJECT_TYPES,
   RESERVED_HANDLES,
 } from "@/types/nodivra";
 
@@ -181,6 +184,7 @@ const projectHighlightConfigurationSchema = z
     role: shortText(72, "Roles must be 72 characters or fewer."),
     technologies: technologiesSchema,
     url: optionalSafeHttpUrl,
+    projectId: z.string().uuid().or(z.literal("")).optional().default(""),
   })
   .strict();
 
@@ -299,11 +303,102 @@ export const profileSectionDraftSchema = z
   })
   .strict();
 
+const projectLinkDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    projectId: z.string().uuid(),
+    kind: z.enum(PROJECT_LINK_KINDS),
+    label: shortText(72, "Project link labels must be 72 characters or fewer."),
+    url: safeHttpUrl.refine((value) => value.length > 0, {
+      message: "Project link URL is required.",
+    }),
+    position: z.number().int().min(0),
+    isEnabled: z.boolean().default(true),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict();
+
+const projectSlug = z
+  .string()
+  .transform((value) => value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, ""))
+  .refine((value) => value.length >= 1 && value.length <= 72, {
+    message: "Project slugs must be 1 to 72 characters.",
+  });
+
+export const projectDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    slug: projectSlug,
+    projectName: requiredText(72, "Project names must be 72 characters or fewer."),
+    shortSummary: requiredText(240, "Project summaries must be 240 characters or fewer."),
+    caseStudyMarkdown: requiredText(12000, "Case studies must be 12,000 characters or fewer."),
+    role: shortText(96, "Roles must be 96 characters or fewer."),
+    technologies: z.array(requiredText(32, "Technology names must be 32 characters or fewer.")).max(8, "Use eight technologies or fewer."),
+    projectType: z.enum(PROJECT_TYPES).default("product"),
+    startDate: z.string().regex(/^$|^\d{4}-\d{2}-\d{2}$/, "Use a valid start date."),
+    endDate: z.string().regex(/^$|^\d{4}-\d{2}-\d{2}$/, "Use a valid end date."),
+    status: z.enum(PROJECT_STATUSES).default("in_progress"),
+    coverImageUrl: safeHttpUrl.default(""),
+    lessonsLearned: shortText(1800, "Lessons learned must be 1,800 characters or fewer."),
+    tags: z.array(requiredText(32, "Project tags must be 32 characters or fewer.")).max(8, "Use eight tags or fewer."),
+    isFeatured: z.boolean().default(false),
+    isPublished: z.boolean().default(false),
+    position: z.number().int().min(0),
+    links: z.array(projectLinkDraftSchema).max(3),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict()
+  .superRefine((data, context) => {
+    const kinds = new Set<string>();
+    for (const [index, link] of data.links.entries()) {
+      if (link.projectId !== data.id) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Project links must belong to their project.",
+          path: ["links", index, "projectId"],
+        });
+      }
+      if (kinds.has(link.kind)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Each project link type can appear only once.",
+          path: ["links", index, "kind"],
+        });
+      }
+      kinds.add(link.kind);
+    }
+    for (const key of ["technologies", "tags"] as const) {
+      const values = new Set<string>();
+      for (const [index, value] of data[key].entries()) {
+        const normalized = value.trim().toLowerCase();
+        if (values.has(normalized)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Project ${key} must be unique.`,
+            path: [key, index],
+          });
+        }
+        values.add(normalized);
+      }
+    }
+    if (data.startDate && data.endDate && data.endDate < data.startDate) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "End date cannot be before start date.",
+        path: ["endDate"],
+      });
+    }
+  });
+
 export const workspaceDraftSchema = z.object({
   profile: profileDraftSchema,
   links: z.array(profileLinkDraftSchema).max(30),
   sections: z.array(profileSectionDraftSchema).max(12).default([]),
   blocks: z.array(profileBlockDraftSchema).max(60).default([]),
+  projects: z.array(projectDraftSchema).max(30).default([]),
 }).superRefine((data, context) => {
   const sectionIds = new Set<string>();
   for (const [index, section] of data.sections.entries()) {
@@ -332,6 +427,55 @@ export const workspaceDraftSchema = z.object({
         code: z.ZodIssueCode.custom,
         message: "Every block must belong to an existing section.",
         path: ["blocks", index, "sectionId"],
+      });
+    }
+  }
+
+  const projectIds = new Set<string>();
+  const projectSlugs = new Set<string>();
+  let featuredCount = 0;
+  for (const [index, project] of data.projects.entries()) {
+    if (projectIds.has(project.id)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Project IDs must be unique.",
+        path: ["projects", index, "id"],
+      });
+    }
+    if (projectSlugs.has(project.slug)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Project slugs must be unique.",
+        path: ["projects", index, "slug"],
+      });
+    }
+    if (project.profileId !== data.profile.id) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Projects must belong to the current profile.",
+        path: ["projects", index, "profileId"],
+      });
+    }
+    if (project.isFeatured) {
+      featuredCount += 1;
+    }
+    projectIds.add(project.id);
+    projectSlugs.add(project.slug);
+  }
+  if (featuredCount > 3) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Choose three featured projects or fewer.",
+      path: ["projects"],
+    });
+  }
+
+  for (const [index, block] of data.blocks.entries()) {
+    if (block.type === "project_highlight" && block.configuration.projectId && !projectIds.has(block.configuration.projectId)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Project highlights must link to an existing project.",
+        path: ["blocks", index, "configuration", "projectId"],
       });
     }
   }
@@ -370,6 +514,34 @@ export const publicProfileSnapshotSchema = z.object({
     position: z.number().int().min(0),
   }).strict()).default([]),
   publishedBlocks: z.array(publicBlockSnapshotSchema).default([]),
+  publishedProjects: z.array(z.object({
+    id: z.string().uuid(),
+    slug: z.string(),
+    projectName: z.string(),
+    shortSummary: z.string(),
+    caseStudyMarkdown: z.string(),
+    role: z.string(),
+    technologies: z.array(z.string()),
+    projectType: z.enum(PROJECT_TYPES),
+    startDate: z.string(),
+    endDate: z.string(),
+    status: z.enum(PROJECT_STATUSES),
+    coverImageUrl: safeHttpUrl,
+    lessonsLearned: z.string(),
+    tags: z.array(z.string()),
+    isFeatured: z.boolean(),
+    position: z.number().int().min(0),
+    links: z.array(z.object({
+      id: z.string().uuid(),
+      kind: z.enum(PROJECT_LINK_KINDS),
+      label: z.string(),
+      url: safeHttpUrl.refine((value) => value.length > 0, {
+        message: "Project link URL is required.",
+      }),
+      position: z.number().int().min(0),
+      isEnabled: z.boolean(),
+    }).strict()),
+  }).strict()).default([]),
   publishedAt: z.string(),
   isPublished: z.boolean(),
 });
@@ -378,6 +550,7 @@ export type ProfileDraftInput = z.infer<typeof profileDraftSchema>;
 export type ProfileLinkDraftInput = z.infer<typeof profileLinkDraftSchema>;
 export type ProfileSectionDraftInput = z.infer<typeof profileSectionDraftSchema>;
 export type ProfileBlockDraftInput = z.infer<typeof profileBlockDraftSchema>;
+export type ProfileProjectDraftInput = z.infer<typeof projectDraftSchema>;
 export type WorkspaceDraftInput = z.infer<typeof workspaceDraftSchema>;
 export type PublicLinkSnapshotInput = z.infer<typeof publicLinkSnapshotSchema>;
 export type PublicProfileSnapshotInput = z.infer<typeof publicProfileSnapshotSchema>;

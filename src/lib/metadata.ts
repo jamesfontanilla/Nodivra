@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getSiteUrl, siteName, siteTagline } from "@/lib/site";
 import type { PublicProfileSnapshot } from "@/types/nodivra";
+import type { PublicProjectSnapshot } from "@/types/nodivra";
 
 function buildDescription(profile?: PublicProfileSnapshot | null) {
   if (profile?.headline) {
@@ -41,6 +42,35 @@ export function buildPublicProfileMetadata(
       card: "summary",
       title,
       description,
+    },
+  };
+}
+
+export function buildPublicProjectMetadata(
+  profile: PublicProfileSnapshot,
+  project: PublicProjectSnapshot,
+): Metadata {
+  const title = `${project.projectName} · ${profile.displayName} · ${siteName}`;
+  const description = project.shortSummary || buildDescription(profile);
+  const canonical = new URL(`/u/${profile.handle}/projects/${project.slug}`, getSiteUrl()).toString();
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      siteName,
+      type: "article",
+      ...(project.coverImageUrl ? { images: [{ url: project.coverImageUrl, alt: project.projectName }] } : {}),
+    },
+    twitter: {
+      card: project.coverImageUrl ? "summary_large_image" : "summary",
+      title,
+      description,
+      ...(project.coverImageUrl ? { images: [project.coverImageUrl] } : {}),
     },
   };
 }
