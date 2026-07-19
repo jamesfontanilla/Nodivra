@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { cn } from "@/lib/classnames";
 import { sortProjects } from "@/lib/snapshot";
 import { ArrowUpRightIcon, ClockIcon, GlobeIcon, LinkIcon, SparkIcon } from "@/components/icons";
 import { Badge, Divider } from "@/components/ui";
