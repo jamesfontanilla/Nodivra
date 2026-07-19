@@ -169,6 +169,7 @@ describe("validation helpers", () => {
 
   it("limits featured projects and keeps projects profile-scoped", () => {
     const profile = {
+      id: profileId,
       handle: "jamie-fontanilla",
       displayName: "Jamie Fontanilla",
       headline: "",

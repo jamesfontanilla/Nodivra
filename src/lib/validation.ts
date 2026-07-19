@@ -52,6 +52,7 @@ const safeHttpUrl = z
   .transform((value) => (value.length === 0 ? "" : normalizeHttpUrl(value)));
 
 export const profileDraftSchema = z.object({
+  id: z.string().uuid().optional(),
   handle: z
     .string()
     .transform(normalizeHandle)
@@ -449,7 +450,7 @@ export const workspaceDraftSchema = z.object({
         path: ["projects", index, "slug"],
       });
     }
-    if (project.profileId !== data.profile.id) {
+    if (data.profile.id && project.profileId !== data.profile.id) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Projects must belong to the current profile.",
