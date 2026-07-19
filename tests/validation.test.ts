@@ -7,6 +7,7 @@ import {
   projectDraftSchema,
   profileBlockDraftSchema,
   profileDraftSchema,
+  repositoryDraftSchema,
   workspaceDraftSchema,
 } from "@/lib/validation";
 
@@ -31,6 +32,31 @@ describe("validation helpers", () => {
       lessonsLearned: "Keep the scope clear.",
       tags: ["web"],
       isFeatured,
+      isPublished: false,
+      position,
+      links: [],
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+  }
+
+  function repositoryDraft(id: string, position: number, url = `https://github.com/example/repo-${position}`) {
+    return {
+      id,
+      profileId,
+      repositoryName: `repo-${position}`,
+      providerLabel: "GitHub",
+      repositoryUrl: url,
+      description: "A manually curated repository description.",
+      language: "TypeScript",
+      framework: "Next.js",
+      topics: ["web", "systems"],
+      starsText: "12",
+      forksText: "3",
+      activityLabel: "Updated monthly",
+      status: "active",
+      isStatsVisible: true,
+      isFeatured: false,
       isPublished: false,
       position,
       links: [],
@@ -207,6 +233,57 @@ describe("validation helpers", () => {
     });
 
     expect(ownership.success).toBe(false);
+  });
+
+  it("validates manual repositories and prevents unsafe duplicate records", () => {
+    const valid = repositoryDraftSchema.safeParse(repositoryDraft("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", 0));
+    const unsafeUrl = repositoryDraftSchema.safeParse({
+      ...repositoryDraft("ffffffff-ffff-4fff-8fff-ffffffffffff", 1),
+      repositoryUrl: "javascript:alert(1)",
+    });
+    const invalidStackLink = repositoryDraftSchema.safeParse({
+      ...repositoryDraft("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab", 2),
+      links: [{
+        id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbc",
+        profileId,
+        repositoryId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab",
+        kind: "stack",
+        projectId: "",
+        label: "Unsafe stack",
+        url: "javascript:alert(1)",
+        position: 0,
+        isEnabled: true,
+        createdAt: "2026-07-18T00:00:00.000Z",
+        updatedAt: "2026-07-18T00:00:00.000Z",
+      }],
+    });
+    const duplicateUrls = workspaceDraftSchema.safeParse({
+      profile: {
+        id: profileId,
+        handle: "jamie-fontanilla",
+        displayName: "Jamie Fontanilla",
+        headline: "",
+        bio: "",
+        locationText: "",
+        timezone: "UTC",
+        avatarInitials: "JF",
+        avatarUrl: "",
+        primaryCtaLabel: "",
+        primaryCtaUrl: "",
+        availabilityStatus: "available",
+        isPublished: false,
+      },
+      links: [],
+      repositories: [
+        repositoryDraft("cccccccc-cccc-4ccc-8ccc-cccccccccccd", 0, "https://github.com/example/shared"),
+        repositoryDraft("dddddddd-dddd-4ddd-8ddd-ddddddddddde", 1, "HTTPS://GITHUB.COM/example/shared"),
+      ],
+    });
+
+    expect(valid.success).toBe(true);
+    expect(unsafeUrl.success).toBe(false);
+    expect(invalidStackLink.success).toBe(false);
+    expect(duplicateUrls.success).toBe(false);
   });
 
   it("rejects unsafe or untyped block configurations", () => {

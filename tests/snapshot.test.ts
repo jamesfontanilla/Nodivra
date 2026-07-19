@@ -3,7 +3,7 @@ import {
   buildPublicProfileSnapshot,
   splitVisibleLinks,
 } from "@/lib/snapshot";
-import type { ProfileProjectDraft } from "@/types/nodivra";
+import type { ProfileProjectDraft, ProfileRepositoryDraft } from "@/types/nodivra";
 
 describe("public snapshot helpers", () => {
   it("sorts and filters links before publishing", () => {
@@ -256,5 +256,54 @@ describe("public snapshot helpers", () => {
     const snapshot = buildPublicProfileSnapshot(profile, [], profile.updatedAt, [], [], projects);
 
     expect(snapshot.publishedProjects.map((project) => project.projectName)).toEqual(["Second project"]);
+  });
+
+  it("publishes only selected repositories in stable order", () => {
+    const profile = {
+      id: "11111111-1111-1111-1111-111111111111",
+      ownerId: "11111111-1111-1111-1111-111111111111",
+      handle: "jamie-fontanilla",
+      displayName: "Jamie Fontanilla",
+      headline: "",
+      bio: "",
+      locationText: "",
+      timezone: "UTC",
+      avatarInitials: "JF",
+      avatarUrl: "",
+      primaryCtaLabel: "",
+      primaryCtaUrl: "",
+      availabilityStatus: "available" as const,
+      isPublished: false,
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+    const repository = (id: string, name: string, position: number, isPublished: boolean): ProfileRepositoryDraft => ({
+      id,
+      profileId: profile.id,
+      repositoryName: name,
+      providerLabel: "GitHub",
+      repositoryUrl: `https://github.com/example/${name}`,
+      description: "A manual repository description.",
+      language: "TypeScript",
+      framework: "Next.js",
+      topics: ["systems"],
+      starsText: "12",
+      forksText: "2",
+      activityLabel: "Updated monthly",
+      status: "active",
+      isStatsVisible: true,
+      isFeatured: false,
+      isPublished,
+      position,
+      links: [],
+      createdAt: `2026-07-18T00:00:0${position}.000Z`,
+      updatedAt: `2026-07-18T00:00:0${position}.000Z`,
+    });
+    const snapshot = buildPublicProfileSnapshot(profile, [], profile.updatedAt, [], [], [], [
+      repository("77777777-7777-4777-8777-777777777777", "second-repo", 1, true),
+      repository("88888888-8888-4888-8888-888888888888", "private-repo", 0, false),
+    ]);
+
+    expect(snapshot.publishedRepositories.map((item) => item.repositoryName)).toEqual(["second-repo"]);
   });
 });

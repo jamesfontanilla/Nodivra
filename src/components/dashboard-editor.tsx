@@ -5,8 +5,10 @@ import { useMemo, useState } from "react";
 import { PublicProfileCard } from "@/components/public-profile-card";
 import { PublicBlocks } from "@/components/public-blocks";
 import { PublicProjects } from "@/components/project-detail";
+import { PublicRepositories } from "@/components/repository-detail";
 import { BlocksEditor } from "@/components/blocks-editor";
 import { ProjectsEditor } from "@/components/projects-editor";
+import { RepositoriesEditor } from "@/components/repositories-editor";
 import {
   ArrowUpRightIcon,
   CheckIcon,
@@ -24,6 +26,7 @@ import type {
   ProfileBlockDraft,
   ProfileLinkDraft,
   ProfileProjectDraft,
+  ProfileRepositoryDraft,
   ProfileSectionDraft,
   WorkspaceSnapshot,
 } from "@/types/nodivra";
@@ -47,7 +50,7 @@ type Notice = {
   message: string;
 } | null;
 
-type EditorTab = "profile" | "blocks" | "projects";
+type EditorTab = "profile" | "blocks" | "projects" | "repos";
 type PreviewDevice = "desktop" | "mobile";
 
 function createDraftLink(profileId: string, position: number): ProfileLinkDraft {
@@ -139,6 +142,7 @@ export function DashboardEditor({
     workspace.sections,
     workspace.blocks,
     workspace.projects,
+    workspace.repositories,
   );
   const status = statusCopy(workspace, isDirty);
   const publicUrl = workspace.profile.handle
@@ -229,6 +233,19 @@ export function DashboardEditor({
         updatedAt: new Date().toISOString(),
       },
       projects,
+    }));
+  }
+
+  function patchRepositories(repositories: ProfileRepositoryDraft[]) {
+    setIsDirty(true);
+    setWorkspace((current) => ({
+      ...current,
+      profile: {
+        ...current.profile,
+        isPublished: false,
+        updatedAt: new Date().toISOString(),
+      },
+      repositories,
     }));
   }
 
@@ -393,6 +410,34 @@ export function DashboardEditor({
       createdAt: now,
       updatedAt: now,
     }));
+    const nextRepositories = published.publishedRepositories.map((repository) => ({
+      id: repository.id,
+      profileId: workspace.profile.id,
+      repositoryName: repository.repositoryName,
+      providerLabel: repository.providerLabel,
+      repositoryUrl: repository.repositoryUrl,
+      description: repository.description,
+      language: repository.language,
+      framework: repository.framework,
+      topics: repository.topics,
+      starsText: repository.starsText,
+      forksText: repository.forksText,
+      activityLabel: repository.activityLabel,
+      status: repository.status,
+      isStatsVisible: repository.isStatsVisible,
+      isFeatured: repository.isFeatured,
+      isPublished: true,
+      position: repository.position,
+      links: repository.links.map((link) => ({
+        ...link,
+        profileId: workspace.profile.id,
+        repositoryId: repository.id,
+        createdAt: now,
+        updatedAt: now,
+      })),
+      createdAt: now,
+      updatedAt: now,
+    }));
 
     setWorkspace((current) => ({
       ...current,
@@ -416,6 +461,7 @@ export function DashboardEditor({
       sections: nextSections,
       blocks: nextBlocks,
       projects: nextProjects,
+      repositories: nextRepositories,
     }));
     setIsDirty(false);
     setNotice({ tone: "success", message: "Draft restored to the latest published snapshot." });
@@ -543,6 +589,19 @@ export function DashboardEditor({
           >
             <span className="block font-medium">Profile</span>
             <span className={cn("mt-1 block text-xs", activeTab === "profile" ? "text-ink-700" : "text-sand-300/60")}>Identity and primary links</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "repos"}
+            onClick={() => setActiveTab("repos")}
+            className={cn(
+              "flex-1 rounded-full px-4 py-3 text-left text-sm transition-[transform,background-color,color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.99] sm:flex-none sm:min-w-[180px]",
+              activeTab === "repos" ? "bg-sand-100 text-ink-950" : "text-sand-200/70 hover:bg-white/10 hover:text-sand-50",
+            )}
+          >
+            <span className="block font-medium">Repos</span>
+            <span className={cn("mt-1 block text-xs", activeTab === "repos" ? "text-ink-700" : "text-sand-300/60")}>Manual code archive</span>
           </button>
           <button
             type="button"
@@ -970,11 +1029,19 @@ export function DashboardEditor({
               onChange={patchBlocks}
               fieldErrors={fieldErrors}
             />
-          ) : (
+          ) : activeTab === "projects" ? (
             <ProjectsEditor
               profileId={workspace.profile.id}
               projects={workspace.projects}
               onChange={patchProjects}
+              fieldErrors={fieldErrors}
+            />
+          ) : (
+            <RepositoriesEditor
+              profileId={workspace.profile.id}
+              repositories={workspace.repositories}
+              projects={workspace.projects}
+              onChange={patchRepositories}
               fieldErrors={fieldErrors}
             />
           )}
@@ -1026,6 +1093,11 @@ export function DashboardEditor({
                   profileHandle={livePreview.handle}
                 />
                 <PublicProjects projects={livePreview.publishedProjects} profileHandle={livePreview.handle} />
+                <PublicRepositories
+                  repositories={livePreview.publishedRepositories}
+                  projects={livePreview.publishedProjects}
+                  profileHandle={livePreview.handle}
+                />
               </div>
             </div>
           </Panel>
@@ -1063,7 +1135,7 @@ export function DashboardEditor({
                         Published links
                       </p>
                       <p className="mt-2 text-lg font-medium text-sand-50">
-                        {workspace.published.publishedLinks.length} links · {workspace.published.publishedProjects.length} projects
+                        {workspace.published.publishedLinks.length} links · {workspace.published.publishedProjects.length} projects · {workspace.published.publishedRepositories.length} repos
                       </p>
                     </div>
                     <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
@@ -1121,7 +1193,7 @@ export function DashboardEditor({
       <div className="fixed inset-x-4 bottom-4 z-30 flex items-center gap-3 rounded-[1.5rem] bg-ink-950/95 p-2 shadow-halo ring-1 ring-white/15 backdrop-blur-xl lg:hidden">
         <div className="min-w-0 flex-1 px-3">
           <p className="truncate text-xs font-medium text-sand-50">{isDirty ? "Unsaved changes" : "All changes saved"}</p>
-          <p className="truncate text-[10px] uppercase tracking-[0.16em] text-sand-300/60">{activeTab === "blocks" ? "Blocks editor" : activeTab === "projects" ? "Projects editor" : "Profile editor"}</p>
+          <p className="truncate text-[10px] uppercase tracking-[0.16em] text-sand-300/60">{activeTab === "blocks" ? "Blocks editor" : activeTab === "projects" ? "Projects editor" : activeTab === "repos" ? "Repos editor" : "Profile editor"}</p>
         </div>
         <Button type="button" variant="secondary" disabled={!canSave} onClick={() => void saveWorkspace("save")}>
           {savingAction === "save" ? "Saving" : "Save"}

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PublicProfileCard } from "@/components/public-profile-card";
 import { PublicBlocks } from "@/components/public-blocks";
 import { PublicProjects } from "@/components/project-detail";
+import { PublicRepositories } from "@/components/repository-detail";
 import { Reveal } from "@/components/reveal";
 import { Badge, Panel } from "@/components/ui";
 import { buildPublicProfileMetadata } from "@/lib/metadata";
@@ -50,6 +51,11 @@ export default async function PublicProfilePage({
           profileHandle={activeProfile.handle}
         />
         <PublicProjects projects={activeProfile.publishedProjects} profileHandle={activeProfile.handle} />
+        <PublicRepositories
+          repositories={activeProfile.publishedRepositories}
+          projects={activeProfile.publishedProjects}
+          profileHandle={activeProfile.handle}
+        />
       </Reveal>
 
       <Reveal delay={120} className="mt-6">

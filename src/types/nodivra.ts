@@ -194,6 +194,84 @@ export interface PublicProjectSnapshot {
   links: Array<Pick<ProjectLinkDraft, "id" | "kind" | "label" | "url" | "position" | "isEnabled">>;
 }
 
+export const REPOSITORY_STATUSES = [
+  "active",
+  "maintenance",
+  "paused",
+  "archived",
+] as const;
+
+export type RepositoryStatus = (typeof REPOSITORY_STATUSES)[number];
+
+export const REPOSITORY_LINK_KINDS = ["project", "stack"] as const;
+export type RepositoryLinkKind = (typeof REPOSITORY_LINK_KINDS)[number];
+
+export interface RepositoryLinkDraft {
+  id: string;
+  profileId: string;
+  repositoryId: string;
+  kind: RepositoryLinkKind;
+  projectId: string;
+  label: string;
+  url: string;
+  position: number;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfileRepositoryDraft {
+  id: string;
+  profileId: string;
+  repositoryName: string;
+  providerLabel: string;
+  repositoryUrl: string;
+  description: string;
+  language: string;
+  framework: string;
+  topics: string[];
+  starsText: string;
+  forksText: string;
+  activityLabel: string;
+  status: RepositoryStatus;
+  isStatsVisible: boolean;
+  isFeatured: boolean;
+  isPublished: boolean;
+  position: number;
+  links: RepositoryLinkDraft[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublicRepositoryLinkSnapshot {
+  id: string;
+  kind: RepositoryLinkKind;
+  projectId: string;
+  label: string;
+  url: string;
+  position: number;
+  isEnabled: boolean;
+}
+
+export interface PublicRepositorySnapshot {
+  id: string;
+  repositoryName: string;
+  providerLabel: string;
+  repositoryUrl: string;
+  description: string;
+  language: string;
+  framework: string;
+  topics: string[];
+  starsText: string;
+  forksText: string;
+  activityLabel: string;
+  status: RepositoryStatus;
+  isStatsVisible: boolean;
+  isFeatured: boolean;
+  position: number;
+  links: PublicRepositoryLinkSnapshot[];
+}
+
 export interface ProfileSectionDraft {
   id: string;
   profileId: string;
@@ -295,6 +373,7 @@ export interface PublicProfileSnapshot {
   publishedSections: PublicSectionSnapshot[];
   publishedBlocks: PublicBlockSnapshot[];
   publishedProjects: PublicProjectSnapshot[];
+  publishedRepositories: PublicRepositorySnapshot[];
   publishedAt: string;
   isPublished: boolean;
 }
@@ -317,6 +396,7 @@ export interface WorkspaceSnapshot {
   sections: ProfileSectionDraft[];
   blocks: ProfileBlockDraft[];
   projects: ProfileProjectDraft[];
+  repositories: ProfileRepositoryDraft[];
   published: PublicProfileSnapshot | null;
   auditLogs: AuditLogEntry[];
   mode: "demo" | "authenticated" | "anonymous";

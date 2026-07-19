@@ -3,10 +3,12 @@ import {
   type ProfileBlockDraft,
   type ProfileLinkDraft,
   type ProfileProjectDraft,
+  type ProfileRepositoryDraft,
   type ProfileSectionDraft,
   type PublicBlockSnapshot,
   type PublicLinkSnapshot,
   type PublicProjectSnapshot,
+  type PublicRepositorySnapshot,
   type PublicProfileSnapshot,
   type PublicSectionSnapshot,
 } from "@/types/nodivra";
@@ -30,6 +32,12 @@ type SortableBlock = {
 };
 
 type SortableProject = {
+  id: string;
+  position: number;
+  createdAt?: string;
+};
+
+type SortableRepository = {
   id: string;
   position: number;
   createdAt?: string;
@@ -89,6 +97,18 @@ export function sortProjects<T extends SortableProject>(projects: T[]) {
   });
 }
 
+export function sortRepositories<T extends SortableRepository>(repositories: T[]) {
+  return [...repositories].sort((left, right) => {
+    if (left.position !== right.position) {
+      return left.position - right.position;
+    }
+    if (left.createdAt && right.createdAt && left.createdAt !== right.createdAt) {
+      return left.createdAt.localeCompare(right.createdAt);
+    }
+    return left.id.localeCompare(right.id);
+  });
+}
+
 export function toPublicLinks(links: ProfileLinkDraft[]) {
   return sortLinks(links)
     .filter((link) => link.isEnabled && link.visibility !== "hidden")
@@ -110,10 +130,12 @@ export function buildPublicProfileSnapshot(
   sections: ProfileSectionDraft[] = [],
   blocks: ProfileBlockDraft[] = [],
   projects: ProfileProjectDraft[] = [],
+  repositories: ProfileRepositoryDraft[] = [],
 ): PublicProfileSnapshot {
   const publishedSections = toPublicSections(sections);
   const publishedBlocks = toPublicBlocks(blocks, publishedSections);
   const publishedProjects = toPublicProjects(projects);
+  const publishedRepositories = toPublicRepositories(repositories);
 
   return {
     profileId: profile.id,
@@ -132,9 +154,44 @@ export function buildPublicProfileSnapshot(
     publishedSections,
     publishedBlocks,
     publishedProjects,
+    publishedRepositories,
     publishedAt,
     isPublished: true,
   };
+}
+
+export function toPublicRepositories(repositories: ProfileRepositoryDraft[]) {
+  return sortRepositories(repositories)
+    .filter((repository) => repository.isPublished)
+    .map<PublicRepositorySnapshot>((repository) => ({
+      id: repository.id,
+      repositoryName: repository.repositoryName,
+      providerLabel: repository.providerLabel,
+      repositoryUrl: repository.repositoryUrl,
+      description: repository.description,
+      language: repository.language,
+      framework: repository.framework,
+      topics: repository.topics,
+      starsText: repository.starsText,
+      forksText: repository.forksText,
+      activityLabel: repository.activityLabel,
+      status: repository.status,
+      isStatsVisible: repository.isStatsVisible,
+      isFeatured: repository.isFeatured,
+      position: repository.position,
+      links: repository.links
+        .filter((link) => link.isEnabled)
+        .sort((left, right) => left.position - right.position)
+        .map((link) => ({
+          id: link.id,
+          kind: link.kind,
+          projectId: link.projectId,
+          label: link.label,
+          url: link.url,
+          position: link.position,
+          isEnabled: link.isEnabled,
+        })),
+    }));
 }
 
 export function toPublicProjects(projects: ProfileProjectDraft[]) {

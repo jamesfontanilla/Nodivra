@@ -6,6 +6,8 @@ import {
   PROJECT_LINK_KINDS,
   PROJECT_STATUSES,
   PROJECT_TYPES,
+  REPOSITORY_LINK_KINDS,
+  REPOSITORY_STATUSES,
   RESERVED_HANDLES,
 } from "@/types/nodivra";
 
@@ -394,12 +396,149 @@ export const projectDraftSchema = z
     }
   });
 
+const repositoryLinkDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    repositoryId: z.string().uuid(),
+    kind: z.enum(REPOSITORY_LINK_KINDS),
+    projectId: z.string().uuid().or(z.literal("")).default(""),
+    label: shortText(72, "Repository link labels must be 72 characters or fewer."),
+    url: safeHttpUrl.default(""),
+    position: z.number().int().min(0),
+    isEnabled: z.boolean().default(true),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict()
+  .superRefine((data, context) => {
+    if (data.kind === "project") {
+      if (!data.projectId) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Choose a related project.",
+          path: ["projectId"],
+        });
+      }
+      if (data.url) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Project links use the internal project route.",
+          path: ["url"],
+        });
+      }
+    }
+    if (data.kind === "stack") {
+      if (!data.label) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Stack link labels are required.",
+          path: ["label"],
+        });
+      }
+      if (!data.url) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Stack link URL is required.",
+          path: ["url"],
+        });
+      }
+      if (data.projectId) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Stack links cannot reference a project.",
+          path: ["projectId"],
+        });
+      }
+    }
+  });
+
+export const repositoryDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    repositoryName: requiredText(72, "Repository names must be 72 characters or fewer."),
+    providerLabel: requiredText(32, "Provider labels must be 32 characters or fewer."),
+    repositoryUrl: safeHttpUrl.refine((value) => value.length > 0, {
+      message: "Repository URL is required.",
+    }),
+    description: requiredText(280, "Repository descriptions must be 280 characters or fewer."),
+    language: shortText(48, "Languages must be 48 characters or fewer."),
+    framework: shortText(64, "Frameworks must be 64 characters or fewer."),
+    topics: z.array(requiredText(32, "Repository topics must be 32 characters or fewer.")).max(8, "Use eight topics or fewer."),
+    starsText: shortText(32, "Stars text must be 32 characters or fewer."),
+    forksText: shortText(32, "Forks text must be 32 characters or fewer."),
+    activityLabel: shortText(80, "Activity labels must be 80 characters or fewer."),
+    status: z.enum(REPOSITORY_STATUSES).default("active"),
+    isStatsVisible: z.boolean().default(true),
+    isFeatured: z.boolean().default(false),
+    isPublished: z.boolean().default(false),
+    position: z.number().int().min(0),
+    links: z.array(repositoryLinkDraftSchema).max(4),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict()
+  .superRefine((data, context) => {
+    const linkIds = new Set<string>();
+    const projectIds = new Set<string>();
+    for (const [index, link] of data.links.entries()) {
+      if (link.profileId !== data.profileId) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Repository links must belong to the repository profile.",
+          path: ["links", index, "profileId"],
+        });
+      }
+      if (link.repositoryId !== data.id) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Repository links must belong to their repository.",
+          path: ["links", index, "repositoryId"],
+        });
+      }
+      if (linkIds.has(link.id)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Repository link IDs must be unique.",
+          path: ["links", index, "id"],
+        });
+      }
+      linkIds.add(link.id);
+      if (link.kind === "project" && link.projectId) {
+        if (projectIds.has(link.projectId)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "A related project can appear only once.",
+            path: ["links", index, "projectId"],
+          });
+        }
+        projectIds.add(link.projectId);
+      }
+    }
+    for (const key of ["topics"] as const) {
+      const values = new Set<string>();
+      for (const [index, value] of data[key].entries()) {
+        const normalized = value.trim().toLowerCase();
+        if (values.has(normalized)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Repository topics must be unique.",
+            path: [key, index],
+          });
+        }
+        values.add(normalized);
+      }
+    }
+  });
+
 export const workspaceDraftSchema = z.object({
   profile: profileDraftSchema,
   links: z.array(profileLinkDraftSchema).max(30),
   sections: z.array(profileSectionDraftSchema).max(12).default([]),
   blocks: z.array(profileBlockDraftSchema).max(60).default([]),
   projects: z.array(projectDraftSchema).max(30).default([]),
+  repositories: z.array(repositoryDraftSchema).max(30).default([]),
 }).superRefine((data, context) => {
   const sectionIds = new Set<string>();
   for (const [index, section] of data.sections.entries()) {
@@ -460,7 +599,9 @@ export const workspaceDraftSchema = z.object({
     if (project.isFeatured) {
       featuredCount += 1;
     }
-    projectIds.add(project.id);
+    if (!data.profile.id || project.profileId === data.profile.id) {
+      projectIds.add(project.id);
+    }
     projectSlugs.add(project.slug);
   }
   if (featuredCount > 3) {
@@ -478,6 +619,58 @@ export const workspaceDraftSchema = z.object({
         message: "Project highlights must link to an existing project.",
         path: ["blocks", index, "configuration", "projectId"],
       });
+    }
+  }
+
+  const repositoryIds = new Set<string>();
+  const repositoryUrls = new Set<string>();
+  let featuredRepositoryCount = 0;
+  for (const [index, repository] of data.repositories.entries()) {
+    const normalizedUrl = repository.repositoryUrl.toLowerCase();
+    if (repositoryIds.has(repository.id)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Repository IDs must be unique.",
+        path: ["repositories", index, "id"],
+      });
+    }
+    if (repositoryUrls.has(normalizedUrl)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Repository URLs must be unique for this profile.",
+        path: ["repositories", index, "repositoryUrl"],
+      });
+    }
+    if (data.profile.id && repository.profileId !== data.profile.id) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Repositories must belong to the current profile.",
+        path: ["repositories", index, "profileId"],
+      });
+    }
+    if (repository.isFeatured) {
+      featuredRepositoryCount += 1;
+    }
+    repositoryIds.add(repository.id);
+    repositoryUrls.add(normalizedUrl);
+  }
+  if (featuredRepositoryCount > 3) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Choose three featured repositories or fewer.",
+      path: ["repositories"],
+    });
+  }
+
+  for (const [index, repository] of data.repositories.entries()) {
+    for (const [linkIndex, link] of repository.links.entries()) {
+      if (link.kind === "project" && link.projectId && !projectIds.has(link.projectId)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Related repository projects must exist in this workspace.",
+          path: ["repositories", index, "links", linkIndex, "projectId"],
+        });
+      }
     }
   }
 });
@@ -543,6 +736,32 @@ export const publicProfileSnapshotSchema = z.object({
       isEnabled: z.boolean(),
     }).strict()),
   }).strict()).default([]),
+  publishedRepositories: z.array(z.object({
+    id: z.string().uuid(),
+    repositoryName: z.string(),
+    providerLabel: z.string(),
+    repositoryUrl: safeHttpUrl.refine((value) => value.length > 0),
+    description: z.string(),
+    language: z.string(),
+    framework: z.string(),
+    topics: z.array(z.string()),
+    starsText: z.string(),
+    forksText: z.string(),
+    activityLabel: z.string(),
+    status: z.enum(REPOSITORY_STATUSES),
+    isStatsVisible: z.boolean(),
+    isFeatured: z.boolean(),
+    position: z.number().int().min(0),
+    links: z.array(z.object({
+      id: z.string().uuid(),
+      kind: z.enum(REPOSITORY_LINK_KINDS),
+      projectId: z.string().uuid().or(z.literal("")),
+      label: z.string(),
+      url: safeHttpUrl,
+      position: z.number().int().min(0),
+      isEnabled: z.boolean(),
+    }).strict()),
+  }).strict()).default([]),
   publishedAt: z.string(),
   isPublished: z.boolean(),
 });
@@ -552,6 +771,7 @@ export type ProfileLinkDraftInput = z.infer<typeof profileLinkDraftSchema>;
 export type ProfileSectionDraftInput = z.infer<typeof profileSectionDraftSchema>;
 export type ProfileBlockDraftInput = z.infer<typeof profileBlockDraftSchema>;
 export type ProfileProjectDraftInput = z.infer<typeof projectDraftSchema>;
+export type ProfileRepositoryDraftInput = z.infer<typeof repositoryDraftSchema>;
 export type WorkspaceDraftInput = z.infer<typeof workspaceDraftSchema>;
 export type PublicLinkSnapshotInput = z.infer<typeof publicLinkSnapshotSchema>;
 export type PublicProfileSnapshotInput = z.infer<typeof publicProfileSnapshotSchema>;

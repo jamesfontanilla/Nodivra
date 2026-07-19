@@ -6,6 +6,8 @@ import {
   type ProfileDraft,
   type ProfileLinkDraft,
   type ProfileProjectDraft,
+  type ProfileRepositoryDraft,
+  type RepositoryLinkDraft,
   type ProjectLinkDraft,
   type ProfileSectionDraft,
   type WorkspaceSnapshot,
@@ -381,6 +383,107 @@ function createDemoProjects(profileId: string): ProfileProjectDraft[] {
   ];
 }
 
+function createDemoRepositories(profileId: string): ProfileRepositoryDraft[] {
+  const timestamp = now();
+  const createLink = (
+    id: string,
+    repositoryId: string,
+    kind: RepositoryLinkDraft["kind"],
+    label: string,
+    projectId: string,
+    url: string,
+    position: number,
+  ): RepositoryLinkDraft => ({
+    id,
+    profileId,
+    repositoryId,
+    kind,
+    projectId,
+    label,
+    url,
+    position,
+    isEnabled: true,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+
+  return [
+    {
+      id: "8c0f8f13-0c2b-4b0e-9001-000000000001",
+      profileId,
+      repositoryName: "nodivra/ui",
+      providerLabel: "GitHub",
+      repositoryUrl: "https://github.com/example/nodivra-ui",
+      description: "The reusable surface language behind calm, bounded developer pages.",
+      language: "TypeScript",
+      framework: "Next.js",
+      topics: ["design-systems", "nextjs", "accessibility"],
+      starsText: "128",
+      forksText: "18",
+      activityLabel: "Updated weekly",
+      status: "active",
+      isStatsVisible: true,
+      isFeatured: true,
+      isPublished: true,
+      position: 0,
+      links: [
+        createLink("9c0f8f13-0c2b-4b0e-9001-000000000001", "8c0f8f13-0c2b-4b0e-9001-000000000001", "project", "Related project", "4c0f8f13-0c2b-4b0e-9001-000000000001", "", 0),
+        createLink("9c0f8f13-0c2b-4b0e-9001-000000000002", "8c0f8f13-0c2b-4b0e-9001-000000000001", "stack", "Next.js", "", "https://nextjs.org/docs", 1),
+      ],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "8c0f8f13-0c2b-4b0e-9001-000000000002",
+      profileId,
+      repositoryName: "quiet-hours",
+      providerLabel: "Codeberg",
+      repositoryUrl: "https://codeberg.org/example/quiet-hours",
+      description: "A small availability experiment that makes focus time easier to understand.",
+      language: "React",
+      framework: "Vite",
+      topics: ["availability", "accessibility", "experiments"],
+      starsText: "",
+      forksText: "",
+      activityLabel: "Archived experiment",
+      status: "archived",
+      isStatsVisible: false,
+      isFeatured: true,
+      isPublished: true,
+      position: 1,
+      links: [
+        createLink("9c0f8f13-0c2b-4b0e-9001-000000000003", "8c0f8f13-0c2b-4b0e-9001-000000000002", "project", "Quiet Hours case study", "4c0f8f13-0c2b-4b0e-9001-000000000002", "", 0),
+      ],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "8c0f8f13-0c2b-4b0e-9001-000000000003",
+      profileId,
+      repositoryName: "field-notes",
+      providerLabel: "GitHub",
+      repositoryUrl: "https://github.com/example/field-notes",
+      description: "A living archive of product observations, principles, and the decisions they unlock.",
+      language: "Markdown",
+      framework: "",
+      topics: ["writing", "product-thinking"],
+      starsText: "42",
+      forksText: "4",
+      activityLabel: "Updated monthly",
+      status: "maintenance",
+      isStatsVisible: true,
+      isFeatured: false,
+      isPublished: true,
+      position: 2,
+      links: [
+        createLink("9c0f8f13-0c2b-4b0e-9001-000000000004", "8c0f8f13-0c2b-4b0e-9001-000000000003", "stack", "Markdown", "", "https://www.markdownguide.org/", 0),
+      ],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ];
+}
+
 function createAuditLogs(profileId: string): AuditLogEntry[] {
   const timestamp = now();
   return [
@@ -406,12 +509,14 @@ function createDemoStore(): WorkspaceSnapshot {
   const sections = createDemoSections(profile.id);
   const blocks = createDemoBlocks(profile.id, sections);
   const projects = createDemoProjects(profile.id);
+  const repositories = createDemoRepositories(profile.id);
   return {
     profile,
     links,
     sections,
     blocks,
     projects,
+    repositories,
     published: buildPublicProfileSnapshot(
       profile,
       links,
@@ -419,6 +524,7 @@ function createDemoStore(): WorkspaceSnapshot {
       sections,
       blocks,
       projects,
+      repositories,
     ),
     auditLogs: createAuditLogs(profile.id),
     mode: "demo",
@@ -455,6 +561,7 @@ export function getDemoWorkspaceSnapshot(): WorkspaceSnapshot {
     sections: structuredClone(store.sections),
     blocks: structuredClone(store.blocks),
     projects: structuredClone(store.projects),
+    repositories: structuredClone(store.repositories),
     published: structuredClone(store.published),
     auditLogs: structuredClone(store.auditLogs),
     mode: "demo",

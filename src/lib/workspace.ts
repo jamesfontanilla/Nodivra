@@ -6,6 +6,7 @@ import {
   sortBlocks,
   sortLinks,
   sortProjects,
+  sortRepositories,
   sortSections,
 } from "@/lib/snapshot";
 import {
@@ -14,6 +15,7 @@ import {
   profileBlockDraftSchema,
   profileDraftSchema,
   projectDraftSchema,
+  repositoryDraftSchema,
   publicProfileSnapshotSchema,
   toFieldErrors,
   workspaceDraftSchema,
@@ -21,6 +23,7 @@ import {
   type ProfileLinkDraftInput,
   type ProfileDraftInput,
   type ProfileProjectDraftInput,
+  type ProfileRepositoryDraftInput,
   type ProfileSectionDraftInput,
   type WorkspaceDraftInput,
 } from "@/lib/validation";
@@ -34,10 +37,14 @@ import {
   type BlockVisibility,
   type ProfileBlockDraft,
   type ProfileProjectDraft,
+  type ProfileRepositoryDraft,
   type ProjectLinkDraft,
   type ProjectLinkKind,
   type ProjectStatus,
   type ProjectType,
+  type RepositoryLinkDraft,
+  type RepositoryLinkKind,
+  type RepositoryStatus,
   type LinkVisibility,
   type ProfileDraft,
   type ProfileLinkDraft,
@@ -129,6 +136,28 @@ type ProjectsRow = {
   deleted_at: string | null;
 };
 
+type RepositoriesRow = {
+  id: string;
+  profile_id: string;
+  repository_name: string;
+  provider_label: string;
+  repository_url: string;
+  description: string;
+  language: string;
+  framework: string;
+  stars_text: string;
+  forks_text: string;
+  activity_label: string;
+  status: RepositoryStatus;
+  is_stats_visible: boolean;
+  is_featured: boolean;
+  is_published: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
 type ProjectTechnologiesRow = {
   id: string;
   profile_id: string;
@@ -162,6 +191,40 @@ type ProjectLinksRow = {
   updated_at: string;
 };
 
+type RepositoryTopicsRow = {
+  id: string;
+  profile_id: string;
+  repository_id: string;
+  topic: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type RepositoryLanguagesRow = {
+  id: string;
+  profile_id: string;
+  repository_id: string;
+  language: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type RepositoryLinksRow = {
+  id: string;
+  profile_id: string;
+  repository_id: string;
+  kind: RepositoryLinkKind;
+  project_id: string | null;
+  label: string;
+  url: string;
+  position: number;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 type PublicProfileSettingsRow = {
   id: string;
   profile_id: string;
@@ -180,6 +243,7 @@ type PublicProfileSettingsRow = {
   published_sections: unknown;
   published_blocks: unknown;
   published_projects: unknown;
+  published_repositories: unknown;
   is_published: boolean;
   published_at: string | null;
   updated_at: string;
@@ -258,6 +322,7 @@ export function createBlankWorkspace(
     sections: [createStarterSection(ownerId)],
     blocks: [],
     projects: [],
+    repositories: [],
     published: null,
     auditLogs: [],
     mode,
@@ -385,6 +450,60 @@ function projectRowToDraft(
   return parsed.success ? parsed.data : null;
 }
 
+function repositoryLinkRowToDraft(row: RepositoryLinksRow): RepositoryLinkDraft {
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    repositoryId: row.repository_id,
+    kind: row.kind,
+    projectId: row.project_id ?? "",
+    label: row.label,
+    url: row.url,
+    position: row.position,
+    isEnabled: row.is_enabled,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function repositoryRowToDraft(
+  row: RepositoriesRow,
+  topics: RepositoryTopicsRow[],
+  languages: RepositoryLanguagesRow[],
+  links: RepositoryLinksRow[],
+): ProfileRepositoryDraft | null {
+  const sortedLanguages = [...languages].sort((left, right) => left.position - right.position);
+  const candidate = {
+    id: row.id,
+    profileId: row.profile_id,
+    repositoryName: row.repository_name,
+    providerLabel: row.provider_label,
+    repositoryUrl: row.repository_url,
+    description: row.description,
+    language: sortedLanguages[0]?.language ?? row.language,
+    framework: row.framework,
+    topics: [...topics]
+      .sort((left, right) => left.position - right.position)
+      .map((topic) => topic.topic),
+    starsText: row.stars_text,
+    forksText: row.forks_text,
+    activityLabel: row.activity_label,
+    status: row.status,
+    isStatsVisible: row.is_stats_visible,
+    isFeatured: row.is_featured,
+    isPublished: row.is_published,
+    position: row.position,
+    links: [...links]
+      .sort((left, right) => left.position - right.position)
+      .map(repositoryLinkRowToDraft),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+
+  const parsed = repositoryDraftSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
+}
+
 function normalizeProjectDrafts(
   profileId: string,
   projects: ProfileProjectDraftInput[],
@@ -406,6 +525,33 @@ function normalizeProjectDrafts(
         updatedAt: timestamp,
       })),
       createdAt: existing?.createdAt ?? project.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    };
+  });
+}
+
+function normalizeRepositoryDrafts(
+  profileId: string,
+  repositories: ProfileRepositoryDraftInput[],
+  existingRepositories: ProfileRepositoryDraft[] = [],
+) {
+  const timestamp = nowIso();
+  const existingById = new Map(existingRepositories.map((repository) => [repository.id, repository]));
+  return sortRepositories(repositories).map<ProfileRepositoryDraft>((repository, position) => {
+    const existing = existingById.get(repository.id);
+    return {
+      ...repository,
+      profileId,
+      position,
+      links: repository.links.map((link, linkPosition) => ({
+        ...link,
+        profileId,
+        repositoryId: repository.id,
+        position: linkPosition,
+        createdAt: existing?.links.find((item) => item.id === link.id)?.createdAt ?? link.createdAt ?? timestamp,
+        updatedAt: timestamp,
+      })),
+      createdAt: existing?.createdAt ?? repository.createdAt ?? timestamp,
       updatedAt: timestamp,
     };
   });
@@ -457,6 +603,7 @@ function publicRowToSnapshot(row: PublicProfileSettingsRow): PublicProfileSnapsh
     publishedSections: Array.isArray(row.published_sections) ? row.published_sections : [],
     publishedBlocks: Array.isArray(row.published_blocks) ? row.published_blocks : [],
     publishedProjects: Array.isArray(row.published_projects) ? row.published_projects : [],
+    publishedRepositories: Array.isArray(row.published_repositories) ? row.published_repositories : [],
     publishedAt: row.published_at ?? row.updated_at,
     isPublished: row.is_published,
   };
@@ -688,6 +835,96 @@ function mapProjectLinksToRows(
   }));
 }
 
+function mapRepositoryInputsToRows(
+  profileId: string,
+  repositories: ProfileRepositoryDraftInput[],
+  existingRepositories: Array<{ id: string; created_at?: string; createdAt?: string }>,
+): RepositoriesRow[] {
+  const timestamp = nowIso();
+  const existingById = new Map(existingRepositories.map((repository) => [repository.id, repository]));
+  return sortRepositories(repositories).map((repository, position) => {
+    const existing = existingById.get(repository.id);
+    return {
+      id: repository.id,
+      profile_id: profileId,
+      repository_name: repository.repositoryName.trim(),
+      provider_label: repository.providerLabel.trim(),
+      repository_url: repository.repositoryUrl.trim(),
+      description: repository.description.trim(),
+      language: repository.language.trim(),
+      framework: repository.framework.trim(),
+      stars_text: repository.starsText.trim(),
+      forks_text: repository.forksText.trim(),
+      activity_label: repository.activityLabel.trim(),
+      status: repository.status,
+      is_stats_visible: repository.isStatsVisible,
+      is_featured: repository.isFeatured,
+      is_published: repository.isPublished,
+      position,
+      created_at: existing?.created_at ?? existing?.createdAt ?? repository.createdAt ?? timestamp,
+      updated_at: timestamp,
+      deleted_at: null,
+    };
+  });
+}
+
+function mapRepositoryTopicsToRows(
+  profileId: string,
+  repositories: ProfileRepositoryDraftInput[],
+): RepositoryTopicsRow[] {
+  const timestamp = nowIso();
+  return repositories.flatMap((repository) => repository.topics.map((topic, position) => ({
+    id: randomUUID(),
+    profile_id: profileId,
+    repository_id: repository.id,
+    topic: topic.trim(),
+    position,
+    created_at: timestamp,
+    updated_at: timestamp,
+  })));
+}
+
+function mapRepositoryLanguagesToRows(
+  profileId: string,
+  repositories: ProfileRepositoryDraftInput[],
+): RepositoryLanguagesRow[] {
+  const timestamp = nowIso();
+  return repositories.flatMap((repository) => repository.language.trim() ? [{
+    id: randomUUID(),
+    profile_id: profileId,
+    repository_id: repository.id,
+    language: repository.language.trim(),
+    position: 0,
+    created_at: timestamp,
+    updated_at: timestamp,
+  }] : []);
+}
+
+function mapRepositoryLinksToRows(
+  profileId: string,
+  repositories: ProfileRepositoryDraftInput[],
+  existingLinks: Array<{ id: string; created_at?: string; createdAt?: string }>,
+): RepositoryLinksRow[] {
+  const timestamp = nowIso();
+  const existingById = new Map(existingLinks.map((link) => [link.id, link]));
+  return repositories.flatMap((repository) => repository.links.map((link, position) => {
+    const existing = existingById.get(link.id);
+    return {
+      id: link.id,
+      profile_id: profileId,
+      repository_id: repository.id,
+      kind: link.kind,
+      project_id: link.projectId || null,
+      label: link.label.trim(),
+      url: link.url.trim(),
+      position,
+      is_enabled: link.isEnabled,
+      created_at: existing?.created_at ?? existing?.createdAt ?? link.createdAt ?? timestamp,
+      updated_at: timestamp,
+    };
+  }));
+}
+
 function createAuditRow(
   profileId: string,
   actorId: string,
@@ -726,7 +963,7 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
   }
 
   const profileId = profileRow.id;
-  const [linksResult, sectionsResult, blocksResult, projectsResult, projectTechnologiesResult, projectLinksResult, projectTagsResult, publicResult, auditResult] = await Promise.all([
+  const [linksResult, sectionsResult, blocksResult, projectsResult, projectTechnologiesResult, projectLinksResult, projectTagsResult, repositoriesResult, repositoryTopicsResult, repositoryLanguagesResult, repositoryLinksResult, publicResult, auditResult] = await Promise.all([
     client
       .from("profile_links")
       .select("*")
@@ -774,6 +1011,31 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       .order("position", { ascending: true })
       .limit(240),
     client
+      .from("repositories")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null)
+      .order("position", { ascending: true })
+      .limit(30),
+    client
+      .from("repository_topics")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(240),
+    client
+      .from("repository_languages")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(30),
+    client
+      .from("repository_links")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(120),
+    client
       .from("public_profile_settings")
       .select("*")
       .eq("profile_id", profileId)
@@ -806,6 +1068,20 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       );
     })
     .filter((project): project is ProfileProjectDraft => project !== null);
+  const repositoryTopics = (repositoryTopicsResult.data ?? []) as RepositoryTopicsRow[];
+  const repositoryLanguages = (repositoryLanguagesResult.data ?? []) as RepositoryLanguagesRow[];
+  const repositoryLinks = (repositoryLinksResult.data ?? []) as RepositoryLinksRow[];
+  const repositories = (repositoriesResult.data ?? [])
+    .map((row) => {
+      const repository = row as RepositoriesRow;
+      return repositoryRowToDraft(
+        repository,
+        repositoryTopics.filter((item) => item.repository_id === repository.id),
+        repositoryLanguages.filter((item) => item.repository_id === repository.id),
+        repositoryLinks.filter((item) => item.repository_id === repository.id),
+      );
+    })
+    .filter((repository): repository is ProfileRepositoryDraft => repository !== null);
   const published = publicResult.data ? publicRowToSnapshot(publicResult.data) : null;
   const auditLogs = (auditResult.data ?? []).map(auditRowToEntry);
 
@@ -815,6 +1091,7 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
     sections,
     blocks,
     projects,
+    repositories,
     published,
     auditLogs,
     mode: "authenticated",
@@ -941,11 +1218,17 @@ async function persistDemoWorkspace(
     input.projects,
     store.projects,
   );
+  const nextRepositories = normalizeRepositoryDrafts(
+    nextProfile.id,
+    input.repositories,
+    store.repositories,
+  );
   store.profile = nextProfile;
   store.links = nextLinks.map(linkRowToDraft);
   store.sections = nextSections;
   store.blocks = nextBlocks;
   store.projects = nextProjects;
+  store.repositories = nextRepositories;
   store.published = publish
     ? buildPublicProfileSnapshot(
         nextProfile,
@@ -954,6 +1237,7 @@ async function persistDemoWorkspace(
         store.sections,
         store.blocks,
         store.projects,
+        store.repositories,
       )
     : store.published;
   store.auditLogs = [
@@ -962,14 +1246,15 @@ async function persistDemoWorkspace(
       nextProfile.ownerId,
       publish ? "profile_published" : "profile_saved",
       publish
-        ? `Published ${store.links.length} links, ${store.blocks.length} blocks, and ${store.projects.length} projects`
-        : `Saved ${store.links.length} links, ${store.blocks.length} blocks, and ${store.projects.length} projects`,
+        ? `Published ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, and ${store.repositories.length} repositories`
+        : `Saved ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, and ${store.repositories.length} repositories`,
       {
         published: publish,
         linkCount: store.links.length,
         blockCount: store.blocks.length,
         sectionCount: store.sections.length,
         projectCount: store.projects.length,
+        repositoryCount: store.repositories.length,
       },
     ),
     ...store.auditLogs,
@@ -1101,7 +1386,7 @@ async function persistSupabaseWorkspace(
     }
   }
 
-  const [{ data: existingSectionsMany }, { data: existingBlocksMany }, { data: existingProjectsMany }, { data: existingProjectLinksMany }] = await Promise.all([
+  const [{ data: existingSectionsMany }, { data: existingBlocksMany }, { data: existingProjectsMany }, { data: existingProjectLinksMany }, { data: existingRepositoriesMany }, { data: existingRepositoryLinksMany }] = await Promise.all([
     client
       .from("profile_sections")
       .select("*")
@@ -1119,6 +1404,15 @@ async function persistSupabaseWorkspace(
       .is("deleted_at", null),
     client
       .from("project_links")
+      .select("id, created_at")
+      .eq("profile_id", profileId),
+    client
+      .from("repositories")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null),
+    client
+      .from("repository_links")
       .select("id, created_at")
       .eq("profile_id", profileId),
   ]);
@@ -1269,6 +1563,61 @@ async function persistSupabaseWorkspace(
     }
   }
 
+  const nextRepositories = mapRepositoryInputsToRows(
+    profileId,
+    input.repositories,
+    (existingRepositoriesMany ?? []) as RepositoriesRow[],
+  );
+  const nextRepositoryDrafts = normalizeRepositoryDrafts(profileId, input.repositories);
+  if (nextRepositories.length > 0) {
+    const { error: repositoryUpsertError } = await client.from("repositories").upsert(nextRepositories);
+    if (repositoryUpsertError) {
+      return { ok: false, message: repositoryUpsertError.message, fieldErrors: {} };
+    }
+  }
+
+  const staleRepositoryIds = (existingRepositoriesMany ?? [])
+    .map((repository) => repository.id)
+    .filter((id) => !nextRepositories.some((repository) => repository.id === id));
+  const repositoryChildTables = ["repository_topics", "repository_languages", "repository_links"] as const;
+  for (const table of repositoryChildTables) {
+    const { error: childDeleteError } = await client
+      .from(table)
+      .delete()
+      .eq("profile_id", profileId);
+    if (childDeleteError) {
+      return { ok: false, message: childDeleteError.message, fieldErrors: {} };
+    }
+  }
+
+  const repositoryTopics = mapRepositoryTopicsToRows(profileId, input.repositories);
+  const repositoryLanguages = mapRepositoryLanguagesToRows(profileId, input.repositories);
+  const repositoryLinks = mapRepositoryLinksToRows(
+    profileId,
+    input.repositories,
+    (existingRepositoryLinksMany ?? []) as Array<{ id: string; created_at?: string }>,
+  );
+  if (repositoryTopics.length > 0) {
+    const { error } = await client.from("repository_topics").insert(repositoryTopics);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  if (repositoryLanguages.length > 0) {
+    const { error } = await client.from("repository_languages").insert(repositoryLanguages);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  if (repositoryLinks.length > 0) {
+    const { error } = await client.from("repository_links").insert(repositoryLinks);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  if (staleRepositoryIds.length > 0) {
+    const { error: repositoryDeleteError } = await client
+      .from("repositories")
+      .delete()
+      .eq("profile_id", profileId)
+      .in("id", staleRepositoryIds);
+    if (repositoryDeleteError) return { ok: false, message: repositoryDeleteError.message, fieldErrors: {} };
+  }
+
   if (publish) {
     const published = buildPublicProfileSnapshot(
       profileRowToDraft(profileRow),
@@ -1279,6 +1628,7 @@ async function persistSupabaseWorkspace(
         .map(blockRowToDraft)
         .filter((block): block is ProfileBlockDraft => block !== null),
       nextProjectDrafts,
+      nextRepositoryDrafts,
     );
     const publicRow = {
       profile_id: profileId,
@@ -1297,6 +1647,7 @@ async function persistSupabaseWorkspace(
       published_sections: published.publishedSections,
       published_blocks: published.publishedBlocks,
       published_projects: published.publishedProjects,
+      published_repositories: published.publishedRepositories,
       is_published: true,
       published_at: nowIso(),
       updated_at: nowIso(),
@@ -1320,14 +1671,15 @@ async function persistSupabaseWorkspace(
     viewer.userId,
     publish ? "profile_published" : "profile_saved",
     publish
-      ? `Published ${nextLinks.length} links, ${nextBlocks.length} blocks, and ${nextProjects.length} projects`
-      : `Saved ${nextLinks.length} links, ${nextBlocks.length} blocks, and ${nextProjects.length} projects`,
+      ? `Published ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, and ${nextRepositories.length} repositories`
+      : `Saved ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, and ${nextRepositories.length} repositories`,
     {
       published: publish,
       linkCount: nextLinks.length,
       blockCount: nextBlocks.length,
       sectionCount: nextSections.length,
       projectCount: nextProjects.length,
+      repositoryCount: nextRepositories.length,
       handle: profileRow.handle,
     },
   );
