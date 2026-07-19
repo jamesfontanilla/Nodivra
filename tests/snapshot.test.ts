@@ -3,7 +3,7 @@ import {
   buildPublicProfileSnapshot,
   splitVisibleLinks,
 } from "@/lib/snapshot";
-import type { ProfileProjectDraft, ProfileRepositoryDraft } from "@/types/nodivra";
+import type { ProfileProjectDraft, ProfileRepositoryDraft, ProfileStackCategoryDraft, ProfileStackItemDraft } from "@/types/nodivra";
 
 describe("public snapshot helpers", () => {
   it("sorts and filters links before publishing", () => {
@@ -305,5 +305,106 @@ describe("public snapshot helpers", () => {
     ]);
 
     expect(snapshot.publishedRepositories.map((item) => item.repositoryName)).toEqual(["second-repo"]);
+  });
+
+  it("publishes selected Stack items with only public project links", () => {
+    const profile = {
+      id: "11111111-1111-1111-1111-111111111111",
+      ownerId: "11111111-1111-1111-1111-111111111111",
+      handle: "jamie-fontanilla",
+      displayName: "Jamie Fontanilla",
+      headline: "",
+      bio: "",
+      locationText: "",
+      timezone: "UTC",
+      avatarInitials: "JF",
+      avatarUrl: "",
+      primaryCtaLabel: "",
+      primaryCtaUrl: "",
+      availabilityStatus: "available" as const,
+      isPublished: false,
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+    const category: ProfileStackCategoryDraft = {
+      id: "22222222-2222-4222-8222-222222222222",
+      profileId: profile.id,
+      key: "languages",
+      name: "Languages",
+      slug: "languages",
+      isBuiltIn: true,
+      position: 0,
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+    const publishedProject: ProfileProjectDraft = {
+      id: "33333333-3333-4333-8333-333333333333",
+      profileId: profile.id,
+      slug: "signal",
+      projectName: "Signal",
+      shortSummary: "Published project",
+      caseStudyMarkdown: "## Signal",
+      role: "Engineer",
+      technologies: ["TypeScript"],
+      projectType: "product",
+      startDate: "",
+      endDate: "",
+      status: "shipped",
+      coverImageUrl: "",
+      lessonsLearned: "",
+      tags: [],
+      isFeatured: false,
+      isPublished: true,
+      position: 0,
+      links: [],
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+    const item: ProfileStackItemDraft = {
+      id: "44444444-4444-4444-8444-444444444444",
+      profileId: profile.id,
+      categoryId: category.id,
+      technologyName: "TypeScript",
+      proficiencyLabel: "Comfortable",
+      yearsText: "4 years",
+      confidenceLabel: "Used in production",
+      learningStatus: "comfortable",
+      shortDescription: "Typed interfaces for reliable product work.",
+      iconIdentifier: "code",
+      isFeatured: true,
+      isPublished: true,
+      position: 0,
+      projects: [{
+        id: "55555555-5555-4555-8555-555555555555",
+        profileId: profile.id,
+        stackItemId: "44444444-4444-4444-8444-444444444444",
+        projectId: publishedProject.id,
+        position: 0,
+        isEnabled: true,
+        createdAt: profile.createdAt,
+        updatedAt: profile.updatedAt,
+      }],
+      links: [{
+        id: "66666666-6666-4666-8666-666666666666",
+        profileId: profile.id,
+        stackItemId: "44444444-4444-4444-8444-444444444444",
+        kind: "documentation",
+        label: "Docs",
+        url: "https://www.typescriptlang.org/docs/",
+        position: 0,
+        isEnabled: true,
+        createdAt: profile.createdAt,
+        updatedAt: profile.updatedAt,
+      }],
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+    const privateItem = { ...item, id: "77777777-7777-4777-8777-777777777777", isPublished: false, position: 1 };
+    const snapshot = buildPublicProfileSnapshot(profile, [], profile.updatedAt, [], [], [publishedProject], [], [category], [item, privateItem]);
+
+    expect(snapshot.publishedStackCategories.map((entry) => entry.name)).toEqual(["Languages"]);
+    expect(snapshot.publishedStackItems).toHaveLength(1);
+    expect(snapshot.publishedStackItems[0]?.projects.map((entry) => entry.projectId)).toEqual([publishedProject.id]);
+    expect(snapshot.publishedStackItems[0]?.links[0]?.url).toBe("https://www.typescriptlang.org/docs/");
   });
 });

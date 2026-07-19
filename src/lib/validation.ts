@@ -9,9 +9,14 @@ import {
   REPOSITORY_LINK_KINDS,
   REPOSITORY_STATUSES,
   RESERVED_HANDLES,
+  STACK_CATEGORY_KEYS,
+  STACK_ICON_IDENTIFIERS,
+  STACK_LEARNING_STATUSES,
+  STACK_LINK_KINDS,
 } from "@/types/nodivra";
 
 const handlePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const stackSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export function normalizeHandle(input: string) {
   return input
@@ -532,6 +537,108 @@ export const repositoryDraftSchema = z
     }
   });
 
+export const stackCategoryDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    key: z.union([z.enum(STACK_CATEGORY_KEYS), z.literal("custom")]),
+    name: requiredText(48, "Stack category names must be 48 characters or fewer."),
+    slug: z.string().transform((value) => value.trim().toLowerCase()).refine((value) => stackSlugPattern.test(value) && value.length <= 48, {
+      message: "Use a lowercase stack category slug with letters, numbers, and hyphens.",
+    }),
+    isBuiltIn: z.boolean(),
+    position: z.number().int().min(0),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict()
+  .superRefine((data, context) => {
+    if (data.isBuiltIn && data.key === "custom") {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Built-in categories need a built-in key.", path: ["key"] });
+    }
+    if (!data.isBuiltIn && data.key !== "custom") {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Custom categories use the custom key.", path: ["key"] });
+    }
+  });
+
+const stackProjectDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    stackItemId: z.string().uuid(),
+    projectId: z.string().uuid(),
+    position: z.number().int().min(0),
+    isEnabled: z.boolean().default(true),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict();
+
+const stackLinkDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    stackItemId: z.string().uuid(),
+    kind: z.enum(STACK_LINK_KINDS),
+    label: requiredText(72, "Stack link labels must be 72 characters or fewer."),
+    url: safeHttpUrl.refine((value) => value.length > 0, { message: "Stack link URL is required." }),
+    position: z.number().int().min(0),
+    isEnabled: z.boolean().default(true),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict();
+
+export const stackItemDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    categoryId: z.string().uuid(),
+    technologyName: requiredText(72, "Technology names must be 72 characters or fewer."),
+    proficiencyLabel: shortText(40, "Proficiency labels must be 40 characters or fewer."),
+    yearsText: shortText(24, "Years text must be 24 characters or fewer."),
+    confidenceLabel: shortText(40, "Confidence labels must be 40 characters or fewer."),
+    learningStatus: z.enum(STACK_LEARNING_STATUSES),
+    shortDescription: shortText(180, "Stack descriptions must be 180 characters or fewer."),
+    iconIdentifier: z.enum(STACK_ICON_IDENTIFIERS),
+    isFeatured: z.boolean().default(false),
+    isPublished: z.boolean().default(false),
+    position: z.number().int().min(0),
+    projects: z.array(stackProjectDraftSchema).max(8),
+    links: z.array(stackLinkDraftSchema).max(4),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict()
+  .superRefine((data, context) => {
+    const projectIds = new Set<string>();
+    const linkIds = new Set<string>();
+    const linkUrls = new Set<string>();
+    for (const [index, project] of data.projects.entries()) {
+      if (project.profileId !== data.profileId || project.stackItemId !== data.id) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Stack project links must belong to their stack item.", path: ["projects", index] });
+      }
+      if (projectIds.has(project.projectId)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "A project can be linked only once per technology.", path: ["projects", index, "projectId"] });
+      }
+      projectIds.add(project.projectId);
+    }
+    for (const [index, link] of data.links.entries()) {
+      if (link.profileId !== data.profileId || link.stackItemId !== data.id) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Stack links must belong to their stack item.", path: ["links", index] });
+      }
+      const normalizedUrl = link.url.toLowerCase();
+      if (linkIds.has(link.id)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Stack link IDs must be unique.", path: ["links", index, "id"] });
+      }
+      if (linkUrls.has(normalizedUrl)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Stack links must use unique URLs per technology.", path: ["links", index, "url"] });
+      }
+      linkIds.add(link.id);
+      linkUrls.add(normalizedUrl);
+    }
+  });
+
 export const workspaceDraftSchema = z.object({
   profile: profileDraftSchema,
   links: z.array(profileLinkDraftSchema).max(30),
@@ -539,6 +646,8 @@ export const workspaceDraftSchema = z.object({
   blocks: z.array(profileBlockDraftSchema).max(60).default([]),
   projects: z.array(projectDraftSchema).max(30).default([]),
   repositories: z.array(repositoryDraftSchema).max(30).default([]),
+  stackCategories: z.array(stackCategoryDraftSchema).max(20).default([]),
+  stackItems: z.array(stackItemDraftSchema).max(60).default([]),
 }).superRefine((data, context) => {
   const sectionIds = new Set<string>();
   for (const [index, section] of data.sections.entries()) {
@@ -673,6 +782,64 @@ export const workspaceDraftSchema = z.object({
       }
     }
   }
+
+  const stackCategoryIds = new Set<string>();
+  const stackCategorySlugs = new Set<string>();
+  const stackCategoryKeys = new Set<string>();
+  for (const [index, category] of data.stackCategories.entries()) {
+    if (stackCategoryIds.has(category.id)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Stack category IDs must be unique.", path: ["stackCategories", index, "id"] });
+    }
+    if (stackCategorySlugs.has(category.slug)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Stack category slugs must be unique.", path: ["stackCategories", index, "slug"] });
+    }
+    if (category.isBuiltIn && stackCategoryKeys.has(category.key)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Built-in stack categories must be unique.", path: ["stackCategories", index, "key"] });
+    }
+    if (category.profileId !== data.profile.id) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Stack categories must belong to the current profile.", path: ["stackCategories", index, "profileId"] });
+    }
+    stackCategoryIds.add(category.id);
+    stackCategorySlugs.add(category.slug);
+    if (category.isBuiltIn) stackCategoryKeys.add(category.key);
+  }
+
+  const stackItemIds = new Set<string>();
+  const stackTechnologyNames = new Set<string>();
+  let featuredStackCount = 0;
+  for (const [index, item] of data.stackItems.entries()) {
+    const normalizedName = item.technologyName.toLowerCase();
+    if (stackItemIds.has(item.id)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Stack item IDs must be unique.", path: ["stackItems", index, "id"] });
+    }
+    if (stackTechnologyNames.has(normalizedName)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Technology names must be unique per profile.", path: ["stackItems", index, "technologyName"] });
+    }
+    if (!stackCategoryIds.has(item.categoryId)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Every stack item must belong to an existing category.", path: ["stackItems", index, "categoryId"] });
+    }
+    if (item.profileId !== data.profile.id) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Stack items must belong to the current profile.", path: ["stackItems", index, "profileId"] });
+    }
+    if (item.isFeatured) featuredStackCount += 1;
+    for (const [projectIndex, project] of item.projects.entries()) {
+      if (!projectIds.has(project.projectId)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Stack projects must exist in this workspace.", path: ["stackItems", index, "projects", projectIndex, "projectId"] });
+      }
+    }
+    stackItemIds.add(item.id);
+    stackTechnologyNames.add(normalizedName);
+  }
+  if (featuredStackCount > 6) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose six featured technologies or fewer.", path: ["stackItems"] });
+  }
+  for (const [index, item] of data.stackItems.entries()) {
+    for (const [projectIndex, project] of item.projects.entries()) {
+      if (project.profileId !== data.profile.id || project.stackItemId !== item.id) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Stack project links must belong to the current profile and item.", path: ["stackItems", index, "projects", projectIndex] });
+      }
+    }
+  }
 });
 
 export const publishWorkspaceSchema = workspaceDraftSchema;
@@ -762,6 +929,42 @@ export const publicProfileSnapshotSchema = z.object({
       isEnabled: z.boolean(),
     }).strict()),
   }).strict()).default([]),
+  publishedStackCategories: z.array(z.object({
+    id: z.string().uuid(),
+    key: z.union([z.enum(STACK_CATEGORY_KEYS), z.literal("custom")]),
+    name: z.string(),
+    slug: z.string(),
+    position: z.number().int().min(0),
+  }).strict()).default([]),
+  publishedStackItems: z.array(z.object({
+    id: z.string().uuid(),
+    categoryId: z.string().uuid(),
+    categoryName: z.string(),
+    categorySlug: z.string(),
+    technologyName: z.string(),
+    proficiencyLabel: z.string(),
+    yearsText: z.string(),
+    confidenceLabel: z.string(),
+    learningStatus: z.enum(STACK_LEARNING_STATUSES),
+    shortDescription: z.string(),
+    iconIdentifier: z.enum(STACK_ICON_IDENTIFIERS),
+    isFeatured: z.boolean(),
+    position: z.number().int().min(0),
+    projects: z.array(z.object({
+      id: z.string().uuid(),
+      projectId: z.string().uuid(),
+      position: z.number().int().min(0),
+      isEnabled: z.boolean(),
+    }).strict()),
+    links: z.array(z.object({
+      id: z.string().uuid(),
+      kind: z.enum(STACK_LINK_KINDS),
+      label: z.string(),
+      url: safeHttpUrl.refine((value) => value.length > 0),
+      position: z.number().int().min(0),
+      isEnabled: z.boolean(),
+    }).strict()),
+  }).strict()).default([]),
   publishedAt: z.string(),
   isPublished: z.boolean(),
 });
@@ -772,6 +975,8 @@ export type ProfileSectionDraftInput = z.infer<typeof profileSectionDraftSchema>
 export type ProfileBlockDraftInput = z.infer<typeof profileBlockDraftSchema>;
 export type ProfileProjectDraftInput = z.infer<typeof projectDraftSchema>;
 export type ProfileRepositoryDraftInput = z.infer<typeof repositoryDraftSchema>;
+export type ProfileStackCategoryDraftInput = z.infer<typeof stackCategoryDraftSchema>;
+export type ProfileStackItemDraftInput = z.infer<typeof stackItemDraftSchema>;
 export type WorkspaceDraftInput = z.infer<typeof workspaceDraftSchema>;
 export type PublicLinkSnapshotInput = z.infer<typeof publicLinkSnapshotSchema>;
 export type PublicProfileSnapshotInput = z.infer<typeof publicProfileSnapshotSchema>;

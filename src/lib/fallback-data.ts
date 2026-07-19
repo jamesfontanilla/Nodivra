@@ -7,7 +7,11 @@ import {
   type ProfileLinkDraft,
   type ProfileProjectDraft,
   type ProfileRepositoryDraft,
+  type ProfileStackCategoryDraft,
+  type ProfileStackItemDraft,
   type RepositoryLinkDraft,
+  type StackLinkDraft,
+  type StackProjectDraft,
   type ProjectLinkDraft,
   type ProfileSectionDraft,
   type WorkspaceSnapshot,
@@ -484,6 +488,156 @@ function createDemoRepositories(profileId: string): ProfileRepositoryDraft[] {
   ];
 }
 
+function createDemoStackCategories(profileId: string): ProfileStackCategoryDraft[] {
+  const timestamp = now();
+  const categories = [
+    ["ac0f8f13-0c2b-4b0e-9001-000000000001", "languages", "Languages"],
+    ["ac0f8f13-0c2b-4b0e-9001-000000000002", "frontend", "Frontend"],
+    ["ac0f8f13-0c2b-4b0e-9001-000000000003", "backend", "Backend"],
+    ["ac0f8f13-0c2b-4b0e-9001-000000000004", "databases", "Databases"],
+    ["ac0f8f13-0c2b-4b0e-9001-000000000005", "cloud", "Cloud"],
+    ["ac0f8f13-0c2b-4b0e-9001-000000000006", "testing", "Testing"],
+    ["ac0f8f13-0c2b-4b0e-9001-000000000007", "tooling", "Tooling"],
+    ["ac0f8f13-0c2b-4b0e-9001-000000000008", "design", "Design"],
+    ["ac0f8f13-0c2b-4b0e-9001-000000000009", "mobile", "Mobile"],
+    ["ac0f8f13-0c2b-4b0e-9001-000000000010", "other", "Other"],
+  ] as const;
+  return categories.map(([id, key, name], position) => ({
+    id,
+    profileId,
+    key,
+    name,
+    slug: key,
+    isBuiltIn: true,
+    position,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }));
+}
+
+function createDemoStackItems(profileId: string): ProfileStackItemDraft[] {
+  const timestamp = now();
+  const createProject = (id: string, stackItemId: string, projectId: string, position: number): StackProjectDraft => ({
+    id,
+    profileId,
+    stackItemId,
+    projectId,
+    position,
+    isEnabled: true,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  const createLink = (id: string, stackItemId: string, kind: StackLinkDraft["kind"], label: string, url: string, position: number): StackLinkDraft => ({
+    id,
+    profileId,
+    stackItemId,
+    kind,
+    label,
+    url,
+    position,
+    isEnabled: true,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  return [
+    {
+      id: "bc0f8f13-0c2b-4b0e-9001-000000000001",
+      profileId,
+      categoryId: "ac0f8f13-0c2b-4b0e-9001-000000000001",
+      technologyName: "TypeScript",
+      proficiencyLabel: "Production-ready",
+      yearsText: "6 years",
+      confidenceLabel: "High confidence",
+      learningStatus: "used_daily",
+      shortDescription: "The type layer I reach for when a product needs to stay legible as it grows.",
+      iconIdentifier: "code",
+      isFeatured: true,
+      isPublished: true,
+      position: 0,
+      projects: [createProject("cc0f8f13-0c2b-4b0e-9001-000000000001", "bc0f8f13-0c2b-4b0e-9001-000000000001", "4c0f8f13-0c2b-4b0e-9001-000000000001", 0)],
+      links: [createLink("dc0f8f13-0c2b-4b0e-9001-000000000001", "bc0f8f13-0c2b-4b0e-9001-000000000001", "documentation", "TypeScript handbook", "https://www.typescriptlang.org/docs/", 0)],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "bc0f8f13-0c2b-4b0e-9001-000000000002",
+      profileId,
+      categoryId: "ac0f8f13-0c2b-4b0e-9001-000000000002",
+      technologyName: "Next.js",
+      proficiencyLabel: "Comfortable",
+      yearsText: "4 years",
+      confidenceLabel: "High confidence",
+      learningStatus: "used_daily",
+      shortDescription: "A dependable way to make public surfaces fast, composable, and close to the data.",
+      iconIdentifier: "terminal",
+      isFeatured: true,
+      isPublished: true,
+      position: 1,
+      projects: [createProject("cc0f8f13-0c2b-4b0e-9001-000000000002", "bc0f8f13-0c2b-4b0e-9001-000000000002", "4c0f8f13-0c2b-4b0e-9001-000000000001", 0)],
+      links: [createLink("dc0f8f13-0c2b-4b0e-9001-000000000002", "bc0f8f13-0c2b-4b0e-9001-000000000002", "documentation", "Next.js docs", "https://nextjs.org/docs", 0)],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "bc0f8f13-0c2b-4b0e-9001-000000000003",
+      profileId,
+      categoryId: "ac0f8f13-0c2b-4b0e-9001-000000000004",
+      technologyName: "Postgres",
+      proficiencyLabel: "Comfortable",
+      yearsText: "5 years",
+      confidenceLabel: "Steady",
+      learningStatus: "comfortable",
+      shortDescription: "The quiet foundation for products that need clear ownership, constraints, and history.",
+      iconIdentifier: "database",
+      isFeatured: true,
+      isPublished: true,
+      position: 2,
+      projects: [createProject("cc0f8f13-0c2b-4b0e-9001-000000000003", "bc0f8f13-0c2b-4b0e-9001-000000000003", "4c0f8f13-0c2b-4b0e-9001-000000000001", 0)],
+      links: [createLink("dc0f8f13-0c2b-4b0e-9001-000000000003", "bc0f8f13-0c2b-4b0e-9001-000000000003", "tool", "Supabase docs", "https://supabase.com/docs", 0)],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "bc0f8f13-0c2b-4b0e-9001-000000000004",
+      profileId,
+      categoryId: "ac0f8f13-0c2b-4b0e-9001-000000000006",
+      technologyName: "Playwright",
+      proficiencyLabel: "Growing",
+      yearsText: "1 year",
+      confidenceLabel: "Learning in public",
+      learningStatus: "learning",
+      shortDescription: "A practical testing layer for checking the moments users actually depend on.",
+      iconIdentifier: "shield",
+      isFeatured: false,
+      isPublished: true,
+      position: 3,
+      projects: [createProject("cc0f8f13-0c2b-4b0e-9001-000000000004", "bc0f8f13-0c2b-4b0e-9001-000000000004", "4c0f8f13-0c2b-4b0e-9001-000000000002", 0)],
+      links: [createLink("dc0f8f13-0c2b-4b0e-9001-000000000004", "bc0f8f13-0c2b-4b0e-9001-000000000004", "documentation", "Playwright docs", "https://playwright.dev/docs/intro", 0)],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "bc0f8f13-0c2b-4b0e-9001-000000000005",
+      profileId,
+      categoryId: "ac0f8f13-0c2b-4b0e-9001-000000000008",
+      technologyName: "Figma",
+      proficiencyLabel: "Comfortable",
+      yearsText: "7 years",
+      confidenceLabel: "High confidence",
+      learningStatus: "comfortable",
+      shortDescription: "Where I make structure visible before it becomes an interface.",
+      iconIdentifier: "palette",
+      isFeatured: true,
+      isPublished: true,
+      position: 4,
+      projects: [createProject("cc0f8f13-0c2b-4b0e-9001-000000000005", "bc0f8f13-0c2b-4b0e-9001-000000000005", "4c0f8f13-0c2b-4b0e-9001-000000000002", 0)],
+      links: [createLink("dc0f8f13-0c2b-4b0e-9001-000000000005", "bc0f8f13-0c2b-4b0e-9001-000000000005", "tool", "Figma", "https://www.figma.com/", 0)],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ];
+}
+
 function createAuditLogs(profileId: string): AuditLogEntry[] {
   const timestamp = now();
   return [
@@ -510,6 +664,8 @@ function createDemoStore(): WorkspaceSnapshot {
   const blocks = createDemoBlocks(profile.id, sections);
   const projects = createDemoProjects(profile.id);
   const repositories = createDemoRepositories(profile.id);
+  const stackCategories = createDemoStackCategories(profile.id);
+  const stackItems = createDemoStackItems(profile.id);
   return {
     profile,
     links,
@@ -517,6 +673,8 @@ function createDemoStore(): WorkspaceSnapshot {
     blocks,
     projects,
     repositories,
+    stackCategories,
+    stackItems,
     published: buildPublicProfileSnapshot(
       profile,
       links,
@@ -525,6 +683,8 @@ function createDemoStore(): WorkspaceSnapshot {
       blocks,
       projects,
       repositories,
+      stackCategories,
+      stackItems,
     ),
     auditLogs: createAuditLogs(profile.id),
     mode: "demo",
@@ -562,6 +722,8 @@ export function getDemoWorkspaceSnapshot(): WorkspaceSnapshot {
     blocks: structuredClone(store.blocks),
     projects: structuredClone(store.projects),
     repositories: structuredClone(store.repositories),
+    stackCategories: structuredClone(store.stackCategories),
+    stackItems: structuredClone(store.stackItems),
     published: structuredClone(store.published),
     auditLogs: structuredClone(store.auditLogs),
     mode: "demo",

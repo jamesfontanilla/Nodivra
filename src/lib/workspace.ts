@@ -7,6 +7,8 @@ import {
   sortLinks,
   sortProjects,
   sortRepositories,
+  sortStackCategories,
+  sortStackItems,
   sortSections,
 } from "@/lib/snapshot";
 import {
@@ -16,6 +18,8 @@ import {
   profileDraftSchema,
   projectDraftSchema,
   repositoryDraftSchema,
+  stackCategoryDraftSchema,
+  stackItemDraftSchema,
   publicProfileSnapshotSchema,
   toFieldErrors,
   workspaceDraftSchema,
@@ -24,12 +28,15 @@ import {
   type ProfileDraftInput,
   type ProfileProjectDraftInput,
   type ProfileRepositoryDraftInput,
+  type ProfileStackCategoryDraftInput,
+  type ProfileStackItemDraftInput,
   type ProfileSectionDraftInput,
   type WorkspaceDraftInput,
 } from "@/lib/validation";
 import {
   DEMO_HANDLE,
   DEMO_USER_ID,
+  STACK_CATEGORY_KEYS,
   type AuditLogEntry,
   type AvailabilityStatus,
   type BlockConfiguration,
@@ -38,6 +45,8 @@ import {
   type ProfileBlockDraft,
   type ProfileProjectDraft,
   type ProfileRepositoryDraft,
+  type ProfileStackCategoryDraft,
+  type ProfileStackItemDraft,
   type ProjectLinkDraft,
   type ProjectLinkKind,
   type ProjectStatus,
@@ -45,6 +54,12 @@ import {
   type RepositoryLinkDraft,
   type RepositoryLinkKind,
   type RepositoryStatus,
+  type StackCategoryKey,
+  type StackIconIdentifier,
+  type StackLearningStatus,
+  type StackLinkDraft,
+  type StackLinkKind,
+  type StackProjectDraft,
   type LinkVisibility,
   type ProfileDraft,
   type ProfileLinkDraft,
@@ -225,6 +240,62 @@ type RepositoryLinksRow = {
   updated_at: string;
 };
 
+type StackCategoriesRow = {
+  id: string;
+  profile_id: string;
+  key: StackCategoryKey;
+  name: string;
+  slug: string;
+  is_built_in: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+type StackItemsRow = {
+  id: string;
+  profile_id: string;
+  category_id: string;
+  technology_name: string;
+  proficiency_label: string;
+  years_text: string;
+  confidence_label: string;
+  learning_status: StackLearningStatus;
+  short_description: string;
+  icon_identifier: StackIconIdentifier;
+  is_featured: boolean;
+  is_published: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+type StackProjectsRow = {
+  id: string;
+  profile_id: string;
+  stack_item_id: string;
+  project_id: string;
+  position: number;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type StackLinksRow = {
+  id: string;
+  profile_id: string;
+  stack_item_id: string;
+  kind: StackLinkKind;
+  label: string;
+  url: string;
+  position: number;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 type PublicProfileSettingsRow = {
   id: string;
   profile_id: string;
@@ -244,6 +315,8 @@ type PublicProfileSettingsRow = {
   published_blocks: unknown;
   published_projects: unknown;
   published_repositories: unknown;
+  published_stack_categories: unknown;
+  published_stack_items: unknown;
   is_published: boolean;
   published_at: string | null;
   updated_at: string;
@@ -312,17 +385,39 @@ function createStarterSection(profileId: string): ProfileSectionDraft {
   };
 }
 
+function stackCategoryName(key: string) {
+  return key.replace(/(^|-)([a-z])/g, (_, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`);
+}
+
+function createStarterStackCategories(profileId: string): ProfileStackCategoryDraft[] {
+  const timestamp = nowIso();
+  return STACK_CATEGORY_KEYS.map((key, position) => ({
+    id: randomUUID(),
+    profileId,
+    key,
+    name: stackCategoryName(key),
+    slug: key,
+    isBuiltIn: true,
+    position,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }));
+}
+
 export function createBlankWorkspace(
   mode: ViewerContext["mode"],
   ownerId: string,
 ): WorkspaceSnapshot {
+  const profile = createBlankProfile(ownerId);
   return {
-    profile: createBlankProfile(ownerId),
+    profile,
     links: [],
-    sections: [createStarterSection(ownerId)],
+    sections: [createStarterSection(profile.id)],
     blocks: [],
     projects: [],
     repositories: [],
+    stackCategories: createStarterStackCategories(profile.id),
+    stackItems: [],
     published: null,
     auditLogs: [],
     mode,
@@ -504,6 +599,76 @@ function repositoryRowToDraft(
   return parsed.success ? parsed.data : null;
 }
 
+function stackCategoryRowToDraft(row: StackCategoriesRow): ProfileStackCategoryDraft {
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    key: row.key,
+    name: row.name,
+    slug: row.slug,
+    isBuiltIn: row.is_built_in,
+    position: row.position,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function stackProjectRowToDraft(row: StackProjectsRow): StackProjectDraft {
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    stackItemId: row.stack_item_id,
+    projectId: row.project_id,
+    position: row.position,
+    isEnabled: row.is_enabled,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function stackLinkRowToDraft(row: StackLinksRow): StackLinkDraft {
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    stackItemId: row.stack_item_id,
+    kind: row.kind,
+    label: row.label,
+    url: row.url,
+    position: row.position,
+    isEnabled: row.is_enabled,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function stackItemRowToDraft(
+  row: StackItemsRow,
+  projects: StackProjectsRow[],
+  links: StackLinksRow[],
+): ProfileStackItemDraft | null {
+  const candidate = {
+    id: row.id,
+    profileId: row.profile_id,
+    categoryId: row.category_id,
+    technologyName: row.technology_name,
+    proficiencyLabel: row.proficiency_label,
+    yearsText: row.years_text,
+    confidenceLabel: row.confidence_label,
+    learningStatus: row.learning_status,
+    shortDescription: row.short_description,
+    iconIdentifier: row.icon_identifier,
+    isFeatured: row.is_featured,
+    isPublished: row.is_published,
+    position: row.position,
+    projects: [...projects].sort((left, right) => left.position - right.position).map(stackProjectRowToDraft),
+    links: [...links].sort((left, right) => left.position - right.position).map(stackLinkRowToDraft),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+  const parsed = stackItemDraftSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
+}
+
 function normalizeProjectDrafts(
   profileId: string,
   projects: ProfileProjectDraftInput[],
@@ -557,6 +722,60 @@ function normalizeRepositoryDrafts(
   });
 }
 
+function normalizeStackCategories(
+  profileId: string,
+  categories: ProfileStackCategoryDraftInput[],
+  existingCategories: ProfileStackCategoryDraft[] = [],
+) {
+  const timestamp = nowIso();
+  const existingById = new Map(existingCategories.map((category) => [category.id, category]));
+  return sortStackCategories(categories).map<ProfileStackCategoryDraft>((category, position) => {
+    const existing = existingById.get(category.id);
+    return {
+      ...category,
+      profileId,
+      position,
+      createdAt: existing?.createdAt ?? category.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    };
+  });
+}
+
+function normalizeStackItems(
+  profileId: string,
+  items: ProfileStackItemDraftInput[],
+  existingItems: ProfileStackItemDraft[] = [],
+) {
+  const timestamp = nowIso();
+  const existingById = new Map(existingItems.map((item) => [item.id, item]));
+  return sortStackItems(items).map<ProfileStackItemDraft>((item, position) => {
+    const existing = existingById.get(item.id);
+    return {
+      ...item,
+      profileId,
+      position,
+      projects: item.projects.map((project, projectPosition) => ({
+        ...project,
+        profileId,
+        stackItemId: item.id,
+        position: projectPosition,
+        createdAt: existing?.projects.find((link) => link.id === project.id)?.createdAt ?? project.createdAt ?? timestamp,
+        updatedAt: timestamp,
+      })),
+      links: item.links.map((link, linkPosition) => ({
+        ...link,
+        profileId,
+        stackItemId: item.id,
+        position: linkPosition,
+        createdAt: existing?.links.find((existingLink) => existingLink.id === link.id)?.createdAt ?? link.createdAt ?? timestamp,
+        updatedAt: timestamp,
+      })),
+      createdAt: existing?.createdAt ?? item.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    };
+  });
+}
+
 function auditRowToEntry(row: AuditLogsRow): AuditLogEntry {
   return {
     id: row.id,
@@ -604,6 +823,8 @@ function publicRowToSnapshot(row: PublicProfileSettingsRow): PublicProfileSnapsh
     publishedBlocks: Array.isArray(row.published_blocks) ? row.published_blocks : [],
     publishedProjects: Array.isArray(row.published_projects) ? row.published_projects : [],
     publishedRepositories: Array.isArray(row.published_repositories) ? row.published_repositories : [],
+    publishedStackCategories: Array.isArray(row.published_stack_categories) ? row.published_stack_categories : [],
+    publishedStackItems: Array.isArray(row.published_stack_items) ? row.published_stack_items : [],
     publishedAt: row.published_at ?? row.updated_at,
     isPublished: row.is_published,
   };
@@ -925,6 +1146,90 @@ function mapRepositoryLinksToRows(
   }));
 }
 
+function mapStackCategoryInputsToRows(
+  profileId: string,
+  categories: ProfileStackCategoryDraftInput[],
+  existingCategories: Array<{ id: string; created_at?: string; createdAt?: string }>,
+): StackCategoriesRow[] {
+  const timestamp = nowIso();
+  const existingById = new Map(existingCategories.map((category) => [category.id, category]));
+  return sortStackCategories(categories).map((category, position) => {
+    const existing = existingById.get(category.id);
+    return {
+      id: category.id,
+      profile_id: profileId,
+      key: category.key,
+      name: category.name.trim(),
+      slug: category.slug.trim().toLowerCase(),
+      is_built_in: category.isBuiltIn,
+      position,
+      created_at: existing?.created_at ?? existing?.createdAt ?? category.createdAt ?? timestamp,
+      updated_at: timestamp,
+      deleted_at: null,
+    };
+  });
+}
+
+function mapStackItemInputsToRows(
+  profileId: string,
+  items: ProfileStackItemDraftInput[],
+  existingItems: Array<{ id: string; created_at?: string; createdAt?: string }>,
+): StackItemsRow[] {
+  const timestamp = nowIso();
+  const existingById = new Map(existingItems.map((item) => [item.id, item]));
+  return sortStackItems(items).map((item, position) => {
+    const existing = existingById.get(item.id);
+    return {
+      id: item.id,
+      profile_id: profileId,
+      category_id: item.categoryId,
+      technology_name: item.technologyName.trim(),
+      proficiency_label: item.proficiencyLabel.trim(),
+      years_text: item.yearsText.trim(),
+      confidence_label: item.confidenceLabel.trim(),
+      learning_status: item.learningStatus,
+      short_description: item.shortDescription.trim(),
+      icon_identifier: item.iconIdentifier,
+      is_featured: item.isFeatured,
+      is_published: item.isPublished,
+      position,
+      created_at: existing?.created_at ?? existing?.createdAt ?? item.createdAt ?? timestamp,
+      updated_at: timestamp,
+      deleted_at: null,
+    };
+  });
+}
+
+function mapStackProjectsToRows(profileId: string, items: ProfileStackItemDraftInput[]): StackProjectsRow[] {
+  const timestamp = nowIso();
+  return items.flatMap((item) => item.projects.map((project, position) => ({
+    id: project.id,
+    profile_id: profileId,
+    stack_item_id: item.id,
+    project_id: project.projectId,
+    position,
+    is_enabled: project.isEnabled,
+    created_at: project.createdAt ?? timestamp,
+    updated_at: timestamp,
+  })));
+}
+
+function mapStackLinksToRows(profileId: string, items: ProfileStackItemDraftInput[]): StackLinksRow[] {
+  const timestamp = nowIso();
+  return items.flatMap((item) => item.links.map((link, position) => ({
+    id: link.id,
+    profile_id: profileId,
+    stack_item_id: item.id,
+    kind: link.kind,
+    label: link.label.trim(),
+    url: link.url.trim(),
+    position,
+    is_enabled: link.isEnabled,
+    created_at: link.createdAt ?? timestamp,
+    updated_at: timestamp,
+  })));
+}
+
 function createAuditRow(
   profileId: string,
   actorId: string,
@@ -963,7 +1268,7 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
   }
 
   const profileId = profileRow.id;
-  const [linksResult, sectionsResult, blocksResult, projectsResult, projectTechnologiesResult, projectLinksResult, projectTagsResult, repositoriesResult, repositoryTopicsResult, repositoryLanguagesResult, repositoryLinksResult, publicResult, auditResult] = await Promise.all([
+  const [linksResult, sectionsResult, blocksResult, projectsResult, projectTechnologiesResult, projectLinksResult, projectTagsResult, repositoriesResult, repositoryTopicsResult, repositoryLanguagesResult, repositoryLinksResult, stackCategoriesResult, stackItemsResult, stackProjectsResult, stackLinksResult, publicResult, auditResult] = await Promise.all([
     client
       .from("profile_links")
       .select("*")
@@ -1036,6 +1341,32 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       .order("position", { ascending: true })
       .limit(120),
     client
+      .from("stack_categories")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null)
+      .order("position", { ascending: true })
+      .limit(20),
+    client
+      .from("stack_items")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null)
+      .order("position", { ascending: true })
+      .limit(60),
+    client
+      .from("stack_projects")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(240),
+    client
+      .from("stack_links")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(240),
+    client
       .from("public_profile_settings")
       .select("*")
       .eq("profile_id", profileId)
@@ -1082,6 +1413,20 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       );
     })
     .filter((repository): repository is ProfileRepositoryDraft => repository !== null);
+  const stackCategories = (stackCategoriesResult.data ?? [])
+    .map((row) => stackCategoryRowToDraft(row as StackCategoriesRow));
+  const stackProjects = (stackProjectsResult.data ?? []) as StackProjectsRow[];
+  const stackLinks = (stackLinksResult.data ?? []) as StackLinksRow[];
+  const stackItems = (stackItemsResult.data ?? [])
+    .map((row) => {
+      const item = row as StackItemsRow;
+      return stackItemRowToDraft(
+        item,
+        stackProjects.filter((link) => link.stack_item_id === item.id),
+        stackLinks.filter((link) => link.stack_item_id === item.id),
+      );
+    })
+    .filter((item): item is ProfileStackItemDraft => item !== null);
   const published = publicResult.data ? publicRowToSnapshot(publicResult.data) : null;
   const auditLogs = (auditResult.data ?? []).map(auditRowToEntry);
 
@@ -1092,6 +1437,8 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
     blocks,
     projects,
     repositories,
+    stackCategories,
+    stackItems,
     published,
     auditLogs,
     mode: "authenticated",
@@ -1223,12 +1570,24 @@ async function persistDemoWorkspace(
     input.repositories,
     store.repositories,
   );
+  const nextStackCategories = normalizeStackCategories(
+    nextProfile.id,
+    input.stackCategories,
+    store.stackCategories,
+  );
+  const nextStackItems = normalizeStackItems(
+    nextProfile.id,
+    input.stackItems,
+    store.stackItems,
+  );
   store.profile = nextProfile;
   store.links = nextLinks.map(linkRowToDraft);
   store.sections = nextSections;
   store.blocks = nextBlocks;
   store.projects = nextProjects;
   store.repositories = nextRepositories;
+  store.stackCategories = nextStackCategories;
+  store.stackItems = nextStackItems;
   store.published = publish
     ? buildPublicProfileSnapshot(
         nextProfile,
@@ -1238,6 +1597,8 @@ async function persistDemoWorkspace(
         store.blocks,
         store.projects,
         store.repositories,
+        store.stackCategories,
+        store.stackItems,
       )
     : store.published;
   store.auditLogs = [
@@ -1246,8 +1607,8 @@ async function persistDemoWorkspace(
       nextProfile.ownerId,
       publish ? "profile_published" : "profile_saved",
       publish
-        ? `Published ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, and ${store.repositories.length} repositories`
-        : `Saved ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, and ${store.repositories.length} repositories`,
+        ? `Published ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, and ${store.stackItems.length} stack items`
+        : `Saved ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, and ${store.stackItems.length} stack items`,
       {
         published: publish,
         linkCount: store.links.length,
@@ -1255,6 +1616,8 @@ async function persistDemoWorkspace(
         sectionCount: store.sections.length,
         projectCount: store.projects.length,
         repositoryCount: store.repositories.length,
+        stackCategoryCount: store.stackCategories.length,
+        stackItemCount: store.stackItems.length,
       },
     ),
     ...store.auditLogs,
@@ -1386,7 +1749,7 @@ async function persistSupabaseWorkspace(
     }
   }
 
-  const [{ data: existingSectionsMany }, { data: existingBlocksMany }, { data: existingProjectsMany }, { data: existingProjectLinksMany }, { data: existingRepositoriesMany }, { data: existingRepositoryLinksMany }] = await Promise.all([
+  const [{ data: existingSectionsMany }, { data: existingBlocksMany }, { data: existingProjectsMany }, { data: existingProjectLinksMany }, { data: existingRepositoriesMany }, { data: existingRepositoryLinksMany }, { data: existingStackCategoriesMany }, { data: existingStackItemsMany }] = await Promise.all([
     client
       .from("profile_sections")
       .select("*")
@@ -1415,6 +1778,16 @@ async function persistSupabaseWorkspace(
       .from("repository_links")
       .select("id, created_at")
       .eq("profile_id", profileId),
+    client
+      .from("stack_categories")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null),
+    client
+      .from("stack_items")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null),
   ]);
 
   const nextSections = mapSectionInputsToRows(
@@ -1618,6 +1991,58 @@ async function persistSupabaseWorkspace(
     if (repositoryDeleteError) return { ok: false, message: repositoryDeleteError.message, fieldErrors: {} };
   }
 
+  const nextStackCategories = mapStackCategoryInputsToRows(
+    profileId,
+    input.stackCategories,
+    (existingStackCategoriesMany ?? []) as StackCategoriesRow[],
+  );
+  const nextStackCategoryDrafts = normalizeStackCategories(profileId, input.stackCategories);
+  if (nextStackCategories.length > 0) {
+    const { error: stackCategoryUpsertError } = await client.from("stack_categories").upsert(nextStackCategories);
+    if (stackCategoryUpsertError) return { ok: false, message: stackCategoryUpsertError.message, fieldErrors: {} };
+  }
+
+  const nextStackItems = mapStackItemInputsToRows(
+    profileId,
+    input.stackItems,
+    (existingStackItemsMany ?? []) as StackItemsRow[],
+  );
+  const nextStackItemDrafts = normalizeStackItems(profileId, input.stackItems);
+  if (nextStackItems.length > 0) {
+    const { error: stackItemUpsertError } = await client.from("stack_items").upsert(nextStackItems);
+    if (stackItemUpsertError) return { ok: false, message: stackItemUpsertError.message, fieldErrors: {} };
+  }
+
+  for (const table of ["stack_projects", "stack_links"] as const) {
+    const { error: childDeleteError } = await client.from(table).delete().eq("profile_id", profileId);
+    if (childDeleteError) return { ok: false, message: childDeleteError.message, fieldErrors: {} };
+  }
+  const stackProjects = mapStackProjectsToRows(profileId, input.stackItems);
+  const stackLinks = mapStackLinksToRows(profileId, input.stackItems);
+  if (stackProjects.length > 0) {
+    const { error } = await client.from("stack_projects").insert(stackProjects);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  if (stackLinks.length > 0) {
+    const { error } = await client.from("stack_links").insert(stackLinks);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+
+  const staleStackItemIds = (existingStackItemsMany ?? [])
+    .map((item) => item.id)
+    .filter((id) => !nextStackItems.some((item) => item.id === id));
+  if (staleStackItemIds.length > 0) {
+    const { error } = await client.from("stack_items").delete().eq("profile_id", profileId).in("id", staleStackItemIds);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  const staleStackCategoryIds = (existingStackCategoriesMany ?? [])
+    .map((category) => category.id)
+    .filter((id) => !nextStackCategories.some((category) => category.id === id));
+  if (staleStackCategoryIds.length > 0) {
+    const { error } = await client.from("stack_categories").delete().eq("profile_id", profileId).in("id", staleStackCategoryIds);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+
   if (publish) {
     const published = buildPublicProfileSnapshot(
       profileRowToDraft(profileRow),
@@ -1629,6 +2054,8 @@ async function persistSupabaseWorkspace(
         .filter((block): block is ProfileBlockDraft => block !== null),
       nextProjectDrafts,
       nextRepositoryDrafts,
+      nextStackCategoryDrafts,
+      nextStackItemDrafts,
     );
     const publicRow = {
       profile_id: profileId,
@@ -1648,6 +2075,8 @@ async function persistSupabaseWorkspace(
       published_blocks: published.publishedBlocks,
       published_projects: published.publishedProjects,
       published_repositories: published.publishedRepositories,
+      published_stack_categories: published.publishedStackCategories,
+      published_stack_items: published.publishedStackItems,
       is_published: true,
       published_at: nowIso(),
       updated_at: nowIso(),
@@ -1671,8 +2100,8 @@ async function persistSupabaseWorkspace(
     viewer.userId,
     publish ? "profile_published" : "profile_saved",
     publish
-      ? `Published ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, and ${nextRepositories.length} repositories`
-      : `Saved ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, and ${nextRepositories.length} repositories`,
+      ? `Published ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, and ${nextStackItemDrafts.length} stack items`
+      : `Saved ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, and ${nextStackItemDrafts.length} stack items`,
     {
       published: publish,
       linkCount: nextLinks.length,
@@ -1680,6 +2109,8 @@ async function persistSupabaseWorkspace(
       sectionCount: nextSections.length,
       projectCount: nextProjects.length,
       repositoryCount: nextRepositories.length,
+      stackCategoryCount: nextStackCategoryDrafts.length,
+      stackItemCount: nextStackItemDrafts.length,
       handle: profileRow.handle,
     },
   );

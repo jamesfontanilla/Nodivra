@@ -4,11 +4,15 @@ import {
   type ProfileLinkDraft,
   type ProfileProjectDraft,
   type ProfileRepositoryDraft,
+  type ProfileStackCategoryDraft,
+  type ProfileStackItemDraft,
   type ProfileSectionDraft,
   type PublicBlockSnapshot,
   type PublicLinkSnapshot,
   type PublicProjectSnapshot,
   type PublicRepositorySnapshot,
+  type PublicStackCategorySnapshot,
+  type PublicStackItemSnapshot,
   type PublicProfileSnapshot,
   type PublicSectionSnapshot,
 } from "@/types/nodivra";
@@ -38,6 +42,18 @@ type SortableProject = {
 };
 
 type SortableRepository = {
+  id: string;
+  position: number;
+  createdAt?: string;
+};
+
+type SortableStackCategory = {
+  id: string;
+  position: number;
+  createdAt?: string;
+};
+
+type SortableStackItem = {
   id: string;
   position: number;
   createdAt?: string;
@@ -109,6 +125,22 @@ export function sortRepositories<T extends SortableRepository>(repositories: T[]
   });
 }
 
+export function sortStackCategories<T extends SortableStackCategory>(categories: T[]) {
+  return [...categories].sort((left, right) => {
+    if (left.position !== right.position) return left.position - right.position;
+    if (left.createdAt && right.createdAt && left.createdAt !== right.createdAt) return left.createdAt.localeCompare(right.createdAt);
+    return left.id.localeCompare(right.id);
+  });
+}
+
+export function sortStackItems<T extends SortableStackItem>(items: T[]) {
+  return [...items].sort((left, right) => {
+    if (left.position !== right.position) return left.position - right.position;
+    if (left.createdAt && right.createdAt && left.createdAt !== right.createdAt) return left.createdAt.localeCompare(right.createdAt);
+    return left.id.localeCompare(right.id);
+  });
+}
+
 export function toPublicLinks(links: ProfileLinkDraft[]) {
   return sortLinks(links)
     .filter((link) => link.isEnabled && link.visibility !== "hidden")
@@ -131,11 +163,15 @@ export function buildPublicProfileSnapshot(
   blocks: ProfileBlockDraft[] = [],
   projects: ProfileProjectDraft[] = [],
   repositories: ProfileRepositoryDraft[] = [],
+  stackCategories: ProfileStackCategoryDraft[] = [],
+  stackItems: ProfileStackItemDraft[] = [],
 ): PublicProfileSnapshot {
   const publishedSections = toPublicSections(sections);
   const publishedBlocks = toPublicBlocks(blocks, publishedSections);
   const publishedProjects = toPublicProjects(projects);
   const publishedRepositories = toPublicRepositories(repositories);
+  const publishedStackCategories = toPublicStackCategories(stackCategories, stackItems);
+  const publishedStackItems = toPublicStackItems(stackItems, stackCategories, publishedProjects);
 
   return {
     profileId: profile.id,
@@ -155,9 +191,78 @@ export function buildPublicProfileSnapshot(
     publishedBlocks,
     publishedProjects,
     publishedRepositories,
+    publishedStackCategories,
+    publishedStackItems,
     publishedAt,
     isPublished: true,
   };
+}
+
+export function toPublicStackCategories(
+  categories: ProfileStackCategoryDraft[],
+  items: ProfileStackItemDraft[],
+) {
+  const publishedCategoryIds = new Set(
+    sortStackItems(items).filter((item) => item.isPublished).map((item) => item.categoryId),
+  );
+  return sortStackCategories(categories)
+    .filter((category) => publishedCategoryIds.has(category.id))
+    .map<PublicStackCategorySnapshot>((category) => ({
+      id: category.id,
+      key: category.key,
+      name: category.name,
+      slug: category.slug,
+      position: category.position,
+    }));
+}
+
+export function toPublicStackItems(
+  items: ProfileStackItemDraft[],
+  categories: ProfileStackCategoryDraft[],
+  projects: PublicProjectSnapshot[],
+) {
+  const categoryById = new Map(categories.map((category) => [category.id, category]));
+  const publishedProjectIds = new Set(projects.map((project) => project.id));
+  return sortStackItems(items)
+    .filter((item) => item.isPublished && categoryById.has(item.categoryId))
+    .map<PublicStackItemSnapshot>((item) => {
+      const category = categoryById.get(item.categoryId)!;
+      return {
+        id: item.id,
+        categoryId: item.categoryId,
+        categoryName: category.name,
+        categorySlug: category.slug,
+        technologyName: item.technologyName,
+        proficiencyLabel: item.proficiencyLabel,
+        yearsText: item.yearsText,
+        confidenceLabel: item.confidenceLabel,
+        learningStatus: item.learningStatus,
+        shortDescription: item.shortDescription,
+        iconIdentifier: item.iconIdentifier,
+        isFeatured: item.isFeatured,
+        position: item.position,
+        projects: item.projects
+          .filter((link) => link.isEnabled && publishedProjectIds.has(link.projectId))
+          .sort((left, right) => left.position - right.position)
+          .map((link) => ({
+            id: link.id,
+            projectId: link.projectId,
+            position: link.position,
+            isEnabled: link.isEnabled,
+          })),
+        links: item.links
+          .filter((link) => link.isEnabled)
+          .sort((left, right) => left.position - right.position)
+          .map((link) => ({
+            id: link.id,
+            kind: link.kind,
+            label: link.label,
+            url: link.url,
+            position: link.position,
+            isEnabled: link.isEnabled,
+          })),
+      };
+    });
 }
 
 export function toPublicRepositories(repositories: ProfileRepositoryDraft[]) {

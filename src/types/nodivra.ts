@@ -272,6 +272,147 @@ export interface PublicRepositorySnapshot {
   links: PublicRepositoryLinkSnapshot[];
 }
 
+export const STACK_CATEGORY_KEYS = [
+  "languages",
+  "frontend",
+  "backend",
+  "databases",
+  "cloud",
+  "testing",
+  "tooling",
+  "design",
+  "mobile",
+  "other",
+] as const;
+
+export type BuiltInStackCategoryKey = (typeof STACK_CATEGORY_KEYS)[number];
+export type StackCategoryKey = BuiltInStackCategoryKey | "custom";
+
+export const STACK_ICON_IDENTIFIERS = [
+  "code",
+  "database",
+  "cloud",
+  "terminal",
+  "palette",
+  "mobile",
+  "tool",
+  "spark",
+  "book",
+  "shield",
+] as const;
+
+export type StackIconIdentifier = (typeof STACK_ICON_IDENTIFIERS)[number];
+
+export const STACK_LEARNING_STATUSES = [
+  "used_daily",
+  "comfortable",
+  "learning",
+  "exploring",
+] as const;
+
+export type StackLearningStatus = (typeof STACK_LEARNING_STATUSES)[number];
+
+export const STACK_LINK_KINDS = ["documentation", "resource", "tool"] as const;
+export type StackLinkKind = (typeof STACK_LINK_KINDS)[number];
+
+export interface ProfileStackCategoryDraft {
+  id: string;
+  profileId: string;
+  key: StackCategoryKey;
+  name: string;
+  slug: string;
+  isBuiltIn: boolean;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StackProjectDraft {
+  id: string;
+  profileId: string;
+  stackItemId: string;
+  projectId: string;
+  position: number;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StackLinkDraft {
+  id: string;
+  profileId: string;
+  stackItemId: string;
+  kind: StackLinkKind;
+  label: string;
+  url: string;
+  position: number;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfileStackItemDraft {
+  id: string;
+  profileId: string;
+  categoryId: string;
+  technologyName: string;
+  proficiencyLabel: string;
+  yearsText: string;
+  confidenceLabel: string;
+  learningStatus: StackLearningStatus;
+  shortDescription: string;
+  iconIdentifier: StackIconIdentifier;
+  isFeatured: boolean;
+  isPublished: boolean;
+  position: number;
+  projects: StackProjectDraft[];
+  links: StackLinkDraft[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublicStackCategorySnapshot {
+  id: string;
+  key: StackCategoryKey;
+  name: string;
+  slug: string;
+  position: number;
+}
+
+export interface PublicStackProjectSnapshot {
+  id: string;
+  projectId: string;
+  position: number;
+  isEnabled: boolean;
+}
+
+export interface PublicStackLinkSnapshot {
+  id: string;
+  kind: StackLinkKind;
+  label: string;
+  url: string;
+  position: number;
+  isEnabled: boolean;
+}
+
+export interface PublicStackItemSnapshot {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  categorySlug: string;
+  technologyName: string;
+  proficiencyLabel: string;
+  yearsText: string;
+  confidenceLabel: string;
+  learningStatus: StackLearningStatus;
+  shortDescription: string;
+  iconIdentifier: StackIconIdentifier;
+  isFeatured: boolean;
+  position: number;
+  projects: PublicStackProjectSnapshot[];
+  links: PublicStackLinkSnapshot[];
+}
+
 export interface ProfileSectionDraft {
   id: string;
   profileId: string;
@@ -374,6 +515,8 @@ export interface PublicProfileSnapshot {
   publishedBlocks: PublicBlockSnapshot[];
   publishedProjects: PublicProjectSnapshot[];
   publishedRepositories: PublicRepositorySnapshot[];
+  publishedStackCategories: PublicStackCategorySnapshot[];
+  publishedStackItems: PublicStackItemSnapshot[];
   publishedAt: string;
   isPublished: boolean;
 }
@@ -397,6 +540,8 @@ export interface WorkspaceSnapshot {
   blocks: ProfileBlockDraft[];
   projects: ProfileProjectDraft[];
   repositories: ProfileRepositoryDraft[];
+  stackCategories: ProfileStackCategoryDraft[];
+  stackItems: ProfileStackItemDraft[];
   published: PublicProfileSnapshot | null;
   auditLogs: AuditLogEntry[];
   mode: "demo" | "authenticated" | "anonymous";

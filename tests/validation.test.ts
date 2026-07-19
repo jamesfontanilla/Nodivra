@@ -8,6 +8,8 @@ import {
   profileBlockDraftSchema,
   profileDraftSchema,
   repositoryDraftSchema,
+  stackCategoryDraftSchema,
+  stackItemDraftSchema,
   workspaceDraftSchema,
 } from "@/lib/validation";
 
@@ -59,6 +61,42 @@ describe("validation helpers", () => {
       isFeatured: false,
       isPublished: false,
       position,
+      links: [],
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+  }
+
+  function stackCategory(id: string, key: "languages" | "custom", name: string, isBuiltIn = key !== "custom") {
+    return {
+      id,
+      profileId,
+      key,
+      name,
+      slug: name.toLowerCase().replace(/\s+/g, "-"),
+      isBuiltIn,
+      position: 0,
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+  }
+
+  function stackItem(id: string, categoryId: string) {
+    return {
+      id,
+      profileId,
+      categoryId,
+      technologyName: "TypeScript",
+      proficiencyLabel: "Comfortable",
+      yearsText: "4 years",
+      confidenceLabel: "Used in production",
+      learningStatus: "comfortable",
+      shortDescription: "Typed interfaces for reliable product work.",
+      iconIdentifier: "code",
+      isFeatured: true,
+      isPublished: true,
+      position: 0,
+      projects: [],
       links: [],
       createdAt: "2026-07-18T00:00:00.000Z",
       updatedAt: "2026-07-18T00:00:00.000Z",
@@ -284,6 +322,69 @@ describe("validation helpers", () => {
     expect(unsafeUrl.success).toBe(false);
     expect(invalidStackLink.success).toBe(false);
     expect(duplicateUrls.success).toBe(false);
+  });
+
+  it("validates controlled Stack categories, icons, ownership, and project links", () => {
+    const category = stackCategory("11111111-1111-4111-8111-111111111112", "languages", "Languages");
+    const item = stackItem("22222222-2222-4222-8222-222222222223", category.id);
+    const valid = workspaceDraftSchema.safeParse({
+      profile: {
+        id: profileId,
+        handle: "jamie-fontanilla",
+        displayName: "Jamie Fontanilla",
+        headline: "",
+        bio: "",
+        locationText: "",
+        timezone: "UTC",
+        avatarInitials: "JF",
+        avatarUrl: "",
+        primaryCtaLabel: "",
+        primaryCtaUrl: "",
+        availabilityStatus: "available",
+        isPublished: false,
+      },
+      links: [],
+      projects: [projectDraft("33333333-3333-4333-8333-333333333334", 0)],
+      stackCategories: [category],
+      stackItems: [{
+        ...item,
+        projects: [{
+          id: "44444444-4444-4444-8444-444444444445",
+          profileId,
+          stackItemId: item.id,
+          projectId: "33333333-3333-4333-8333-333333333334",
+          position: 0,
+          isEnabled: true,
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+        }],
+      }],
+    });
+    const unsafeIcon = stackItemDraftSchema.safeParse({ ...item, iconIdentifier: "external-logo" });
+    const foreignCategory = workspaceDraftSchema.safeParse({
+      profile: {
+        id: profileId,
+        handle: "jamie-fontanilla",
+        displayName: "Jamie Fontanilla",
+        headline: "",
+        bio: "",
+        locationText: "",
+        timezone: "UTC",
+        avatarInitials: "JF",
+        avatarUrl: "",
+        primaryCtaLabel: "",
+        primaryCtaUrl: "",
+        availabilityStatus: "available",
+        isPublished: false,
+      },
+      links: [],
+      stackCategories: [{ ...category, profileId: "55555555-5555-4555-8555-555555555556" }],
+      stackItems: [],
+    });
+
+    expect(valid.success).toBe(true);
+    expect(unsafeIcon.success).toBe(false);
+    expect(foreignCategory.success).toBe(false);
   });
 
   it("rejects unsafe or untyped block configurations", () => {
