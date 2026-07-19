@@ -6,6 +6,7 @@ import {
   type ProfileRepositoryDraft,
   type ProfileStackCategoryDraft,
   type ProfileStackItemDraft,
+  type ProfilePathEntryDraft,
   type ProfileSectionDraft,
   type PublicBlockSnapshot,
   type PublicLinkSnapshot,
@@ -13,6 +14,7 @@ import {
   type PublicRepositorySnapshot,
   type PublicStackCategorySnapshot,
   type PublicStackItemSnapshot,
+  type PublicPathEntrySnapshot,
   type PublicProfileSnapshot,
   type PublicSectionSnapshot,
 } from "@/types/nodivra";
@@ -54,6 +56,12 @@ type SortableStackCategory = {
 };
 
 type SortableStackItem = {
+  id: string;
+  position: number;
+  createdAt?: string;
+};
+
+type SortablePathEntry = {
   id: string;
   position: number;
   createdAt?: string;
@@ -141,6 +149,14 @@ export function sortStackItems<T extends SortableStackItem>(items: T[]) {
   });
 }
 
+export function sortPathEntries<T extends SortablePathEntry>(entries: T[]) {
+  return [...entries].sort((left, right) => {
+    if (left.position !== right.position) return left.position - right.position;
+    if (left.createdAt && right.createdAt && left.createdAt !== right.createdAt) return left.createdAt.localeCompare(right.createdAt);
+    return left.id.localeCompare(right.id);
+  });
+}
+
 export function toPublicLinks(links: ProfileLinkDraft[]) {
   return sortLinks(links)
     .filter((link) => link.isEnabled && link.visibility !== "hidden")
@@ -165,6 +181,7 @@ export function buildPublicProfileSnapshot(
   repositories: ProfileRepositoryDraft[] = [],
   stackCategories: ProfileStackCategoryDraft[] = [],
   stackItems: ProfileStackItemDraft[] = [],
+  pathEntries: ProfilePathEntryDraft[] = [],
 ): PublicProfileSnapshot {
   const publishedSections = toPublicSections(sections);
   const publishedBlocks = toPublicBlocks(blocks, publishedSections);
@@ -172,6 +189,7 @@ export function buildPublicProfileSnapshot(
   const publishedRepositories = toPublicRepositories(repositories);
   const publishedStackCategories = toPublicStackCategories(stackCategories, stackItems);
   const publishedStackItems = toPublicStackItems(stackItems, stackCategories, publishedProjects);
+  const publishedPathEntries = toPublicPathEntries(pathEntries, publishedProjects);
 
   return {
     profileId: profile.id,
@@ -193,9 +211,54 @@ export function buildPublicProfileSnapshot(
     publishedRepositories,
     publishedStackCategories,
     publishedStackItems,
+    publishedPathEntries,
     publishedAt,
     isPublished: true,
   };
+}
+
+function publicPathDate(value: string, visibility: ProfilePathEntryDraft["dateVisibility"]) {
+  return visibility === "year_only" && value ? value.slice(0, 4) : value;
+}
+
+export function toPublicPathEntries(
+  entries: ProfilePathEntryDraft[],
+  projects: PublicProjectSnapshot[],
+) {
+  const publishedProjectIds = new Set(projects.map((project) => project.id));
+  return sortPathEntries(entries)
+    .filter((entry) => entry.isPublished)
+    .map<PublicPathEntrySnapshot>((entry) => ({
+      id: entry.id,
+      entryType: entry.entryType,
+      title: entry.title,
+      organization: entry.organization,
+      locationText: entry.locationText,
+      startDate: publicPathDate(entry.startDate, entry.dateVisibility),
+      endDate: publicPathDate(entry.endDate, entry.dateVisibility),
+      isCurrent: entry.isCurrent,
+      dateVisibility: entry.dateVisibility,
+      summary: entry.summary,
+      highlights: [...entry.highlights]
+        .sort((left, right) => left.position - right.position)
+        .map((highlight) => ({ id: highlight.id, content: highlight.content, position: highlight.position })),
+      technologies: [...entry.technologies]
+        .sort((left, right) => left.position - right.position)
+        .map((technology) => ({ id: technology.id, technology: technology.technology, position: technology.position })),
+      links: [...entry.links]
+        .filter((link) => link.isEnabled && (link.kind !== "project" || publishedProjectIds.has(link.projectId)))
+        .sort((left, right) => left.position - right.position)
+        .map((link) => ({
+          id: link.id,
+          kind: link.kind,
+          projectId: link.projectId,
+          label: link.label,
+          url: link.url,
+          position: link.position,
+          isEnabled: link.isEnabled,
+        })),
+      position: entry.position,
+    }));
 }
 
 export function toPublicStackCategories(

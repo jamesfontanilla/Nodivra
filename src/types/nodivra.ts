@@ -371,6 +371,118 @@ export interface ProfileStackItemDraft {
   updatedAt: string;
 }
 
+export const PATH_ENTRY_TYPES = [
+  "work",
+  "freelance",
+  "internship",
+  "education",
+  "certification",
+  "volunteer",
+  "career_milestone",
+] as const;
+
+export type PathEntryType = (typeof PATH_ENTRY_TYPES)[number];
+
+export const PATH_DATE_VISIBILITIES = ["exact", "year_only"] as const;
+export type PathDateVisibility = (typeof PATH_DATE_VISIBILITIES)[number];
+
+export const PATH_LINK_KINDS = ["project", "website", "certificate", "resource"] as const;
+export type PathLinkKind = (typeof PATH_LINK_KINDS)[number];
+
+export interface PathHighlightDraft {
+  id: string;
+  profileId: string;
+  entryId: string;
+  content: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PathTechnologyDraft {
+  id: string;
+  profileId: string;
+  entryId: string;
+  technology: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PathLinkDraft {
+  id: string;
+  profileId: string;
+  entryId: string;
+  kind: PathLinkKind;
+  projectId: string;
+  label: string;
+  url: string;
+  position: number;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfilePathEntryDraft {
+  id: string;
+  profileId: string;
+  entryType: PathEntryType;
+  title: string;
+  organization: string;
+  locationText: string;
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+  dateVisibility: PathDateVisibility;
+  summary: string;
+  highlights: PathHighlightDraft[];
+  technologies: PathTechnologyDraft[];
+  links: PathLinkDraft[];
+  isPublished: boolean;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublicPathHighlightSnapshot {
+  id: string;
+  content: string;
+  position: number;
+}
+
+export interface PublicPathTechnologySnapshot {
+  id: string;
+  technology: string;
+  position: number;
+}
+
+export interface PublicPathLinkSnapshot {
+  id: string;
+  kind: PathLinkKind;
+  projectId: string;
+  label: string;
+  url: string;
+  position: number;
+  isEnabled: boolean;
+}
+
+export interface PublicPathEntrySnapshot {
+  id: string;
+  entryType: PathEntryType;
+  title: string;
+  organization: string;
+  locationText: string;
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+  dateVisibility: PathDateVisibility;
+  summary: string;
+  highlights: PublicPathHighlightSnapshot[];
+  technologies: PublicPathTechnologySnapshot[];
+  links: PublicPathLinkSnapshot[];
+  position: number;
+}
+
 export interface PublicStackCategorySnapshot {
   id: string;
   key: StackCategoryKey;
@@ -517,6 +629,7 @@ export interface PublicProfileSnapshot {
   publishedRepositories: PublicRepositorySnapshot[];
   publishedStackCategories: PublicStackCategorySnapshot[];
   publishedStackItems: PublicStackItemSnapshot[];
+  publishedPathEntries: PublicPathEntrySnapshot[];
   publishedAt: string;
   isPublished: boolean;
 }
@@ -542,6 +655,7 @@ export interface WorkspaceSnapshot {
   repositories: ProfileRepositoryDraft[];
   stackCategories: ProfileStackCategoryDraft[];
   stackItems: ProfileStackItemDraft[];
+  pathEntries: ProfilePathEntryDraft[];
   published: PublicProfileSnapshot | null;
   auditLogs: AuditLogEntry[];
   mode: "demo" | "authenticated" | "anonymous";

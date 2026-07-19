@@ -14,7 +14,7 @@ Fresh build of Nodivra Pages, Blocks, and Projects, a polished public profile an
 1. Copy `.env.example` to `.env.local`.
 1. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 1. Set `NEXT_PUBLIC_SITE_URL` to your local or deployed URL.
-1. Run `database/migrations/001_nodivra_pages.sql` and `database/migrations/002_nodivra_blocks.sql`, then apply `supabase/migrations/20260719000000_nodivra_projects.sql`, `supabase/migrations/20260719010000_nodivra_repos.sql`, and `supabase/migrations/20260719020000_nodivra_stack.sql`.
+1. Run `database/migrations/001_nodivra_pages.sql` and `database/migrations/002_nodivra_blocks.sql`, then apply `supabase/migrations/20260719000000_nodivra_projects.sql`, `supabase/migrations/20260719010000_nodivra_repos.sql`, `supabase/migrations/20260719020000_nodivra_stack.sql`, and `supabase/migrations/20260719030000_nodivra_path.sql`.
 1. Optionally seed the demo workspace through the app's demo mode.
 
 ## Scripts
@@ -39,6 +39,9 @@ Fresh build of Nodivra Pages, Blocks, and Projects, a polished public profile an
 - Stack is a manually curated list of technologies, tools, platforms, and working preferences with built-in or custom text categories, controlled local icon identifiers, and label-based learning states: Used Daily, Comfortable, Learning, and Exploring.
 - The Stack archive at `/u/[handle]/stack` supports bounded text search, category/status filters, and twelve-item pagination. Stack items can link to published Projects and safe manual documentation, resource, or tool URLs.
 - Stack is bounded to 20 categories and 60 items per profile, with no more than six featured items. Nodivra does not use objective proficiency scores, runtime icon services, external technology APIs, scraping, or background sync jobs.
+- Path is a manually curated timeline for work, freelance engagements, internships, education, certifications, volunteering, and career milestones. Each entry supports bounded highlights, technologies, safe links, draft/published state, and current-role status.
+- The Path archive at `/u/[handle]/path` supports bounded text search, entry-type filters, and eight-item pagination. Public dates can be exact or year-only, and related Project links resolve only to published case studies.
+- Path is bounded to 40 entries, eight highlights and technologies per entry, and four links per entry. Path summaries use the existing limited SafeMarkdown renderer; raw HTML, JavaScript, and embeds are not supported.
 - Public blocks are rendered from bounded published snapshots. Unsafe URLs, arbitrary HTML, JavaScript, and iframe embeds are rejected.
 - `docs/` and `.agents/` are kept in the repo as project references.
 - Generated artifacts like `node_modules/` and `.next/` are ignored.

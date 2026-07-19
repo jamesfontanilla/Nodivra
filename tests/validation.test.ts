@@ -8,7 +8,7 @@ import {
   profileBlockDraftSchema,
   profileDraftSchema,
   repositoryDraftSchema,
-  stackCategoryDraftSchema,
+  pathEntryDraftSchema,
   stackItemDraftSchema,
   workspaceDraftSchema,
 } from "@/lib/validation";
@@ -98,6 +98,29 @@ describe("validation helpers", () => {
       position: 0,
       projects: [],
       links: [],
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+  }
+
+  function pathEntry(id: string, startDate = "2024-01-01", endDate = "", isCurrent = false) {
+    return {
+      id,
+      profileId,
+      entryType: "work",
+      title: "Product designer",
+      organization: "Nodivra Studio",
+      locationText: "Remote",
+      startDate,
+      endDate,
+      isCurrent,
+      dateVisibility: "year_only",
+      summary: "A bounded summary of the work and the decisions behind it.",
+      highlights: [],
+      technologies: [],
+      links: [],
+      isPublished: false,
+      position: 0,
       createdAt: "2026-07-18T00:00:00.000Z",
       updatedAt: "2026-07-18T00:00:00.000Z",
     };
@@ -322,6 +345,36 @@ describe("validation helpers", () => {
     expect(unsafeUrl.success).toBe(false);
     expect(invalidStackLink.success).toBe(false);
     expect(duplicateUrls.success).toBe(false);
+  });
+
+  it("validates Path dates, current roles, and entry ownership", () => {
+    const valid = pathEntryDraftSchema.safeParse(pathEntry("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeef", "2021-04-01", "", true));
+    const invalidDate = pathEntryDraftSchema.safeParse(pathEntry("ffffffff-ffff-4fff-8fff-ffffffffffff", "2024-02-30"));
+    const currentWithEnd = pathEntryDraftSchema.safeParse(pathEntry("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab", "2024-01-01", "2025-01-01", true));
+    const foreignEntry = workspaceDraftSchema.safeParse({
+      profile: {
+        id: profileId,
+        handle: "jamie-fontanilla",
+        displayName: "Jamie Fontanilla",
+        headline: "",
+        bio: "",
+        locationText: "",
+        timezone: "UTC",
+        avatarInitials: "JF",
+        avatarUrl: "",
+        primaryCtaLabel: "",
+        primaryCtaUrl: "",
+        availabilityStatus: "available",
+        isPublished: false,
+      },
+      links: [],
+      pathEntries: [{ ...pathEntry("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbc"), profileId: "cccccccc-cccc-4ccc-8ccc-cccccccccccd" }],
+    });
+
+    expect(valid.success).toBe(true);
+    expect(invalidDate.success).toBe(false);
+    expect(currentWithEnd.success).toBe(false);
+    expect(foreignEntry.success).toBe(false);
   });
 
   it("validates controlled Stack categories, icons, ownership, and project links", () => {

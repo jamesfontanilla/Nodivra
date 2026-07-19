@@ -13,10 +13,14 @@ import {
   STACK_ICON_IDENTIFIERS,
   STACK_LEARNING_STATUSES,
   STACK_LINK_KINDS,
+  PATH_DATE_VISIBILITIES,
+  PATH_ENTRY_TYPES,
+  PATH_LINK_KINDS,
 } from "@/types/nodivra";
 
 const handlePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const stackSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const pathDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 export function normalizeHandle(input: string) {
   return input
@@ -639,6 +643,137 @@ export const stackItemDraftSchema = z
     }
   });
 
+const pathDate = z
+  .string()
+  .transform((value) => value.trim())
+  .refine((value) => {
+    if (!value) return true;
+    if (!pathDatePattern.test(value)) return false;
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime())) return false;
+    return parsed.toISOString().slice(0, 10) === value;
+  }, { message: "Use a valid date in YYYY-MM-DD format." });
+
+const pathHighlightDraftSchema = z.object({
+  id: z.string().uuid(),
+  profileId: z.string().uuid(),
+  entryId: z.string().uuid(),
+  content: requiredText(180, "Path highlights must be 180 characters or fewer."),
+  position: z.number().int().min(0),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1),
+}).strict();
+
+const pathTechnologyDraftSchema = z.object({
+  id: z.string().uuid(),
+  profileId: z.string().uuid(),
+  entryId: z.string().uuid(),
+  technology: requiredText(32, "Path technologies must be 32 characters or fewer."),
+  position: z.number().int().min(0),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1),
+}).strict();
+
+const pathLinkDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    entryId: z.string().uuid(),
+    kind: z.enum(PATH_LINK_KINDS),
+    projectId: z.string().uuid().or(z.literal("")),
+    label: requiredText(72, "Path link labels must be 72 characters or fewer."),
+    url: safeHttpUrl,
+    position: z.number().int().min(0),
+    isEnabled: z.boolean().default(true),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict()
+  .superRefine((data, context) => {
+    if (data.kind === "project") {
+      if (!data.projectId) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose a related project.", path: ["projectId"] });
+      }
+      if (data.url) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Project links use the internal project route.", path: ["url"] });
+      }
+    } else {
+      if (!data.url) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Path link URL is required.", path: ["url"] });
+      }
+      if (data.projectId) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "External Path links cannot reference a project.", path: ["projectId"] });
+      }
+    }
+  });
+
+export const pathEntryDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    entryType: z.enum(PATH_ENTRY_TYPES),
+    title: requiredText(72, "Path titles must be 72 characters or fewer."),
+    organization: requiredText(72, "Organizations must be 72 characters or fewer."),
+    locationText: shortText(72, "Path locations must be 72 characters or fewer."),
+    startDate: pathDate.refine((value) => value.length > 0, { message: "Start date is required." }),
+    endDate: pathDate,
+    isCurrent: z.boolean().default(false),
+    dateVisibility: z.enum(PATH_DATE_VISIBILITIES).default("exact"),
+    summary: requiredText(420, "Path summaries must be 420 characters or fewer."),
+    highlights: z.array(pathHighlightDraftSchema).max(8, "Use eight highlights or fewer."),
+    technologies: z.array(pathTechnologyDraftSchema).max(8, "Use eight technologies or fewer."),
+    links: z.array(pathLinkDraftSchema).max(4, "Use four links or fewer."),
+    isPublished: z.boolean().default(false),
+    position: z.number().int().min(0),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict()
+  .superRefine((data, context) => {
+    if (data.endDate && data.endDate < data.startDate) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "End date cannot be before start date.", path: ["endDate"] });
+    }
+    if (data.isCurrent && data.endDate) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Current entries cannot have an end date.", path: ["endDate"] });
+    }
+    const highlightIds = new Set<string>();
+    const technologyIds = new Set<string>();
+    const technologyNames = new Set<string>();
+    const linkIds = new Set<string>();
+    for (const [index, highlight] of data.highlights.entries()) {
+      if (highlight.profileId !== data.profileId || highlight.entryId !== data.id) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Highlights must belong to their Path entry.", path: ["highlights", index] });
+      }
+      if (highlightIds.has(highlight.id)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Path highlight IDs must be unique.", path: ["highlights", index, "id"] });
+      }
+      highlightIds.add(highlight.id);
+    }
+    for (const [index, technology] of data.technologies.entries()) {
+      const normalized = technology.technology.toLowerCase();
+      if (technology.profileId !== data.profileId || technology.entryId !== data.id) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Technologies must belong to their Path entry.", path: ["technologies", index] });
+      }
+      if (technologyIds.has(technology.id)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Path technology IDs must be unique.", path: ["technologies", index, "id"] });
+      }
+      if (technologyNames.has(normalized)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Path technologies must be unique per entry.", path: ["technologies", index, "technology"] });
+      }
+      technologyIds.add(technology.id);
+      technologyNames.add(normalized);
+    }
+    for (const [index, link] of data.links.entries()) {
+      if (link.profileId !== data.profileId || link.entryId !== data.id) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Links must belong to their Path entry.", path: ["links", index] });
+      }
+      if (linkIds.has(link.id)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Path link IDs must be unique.", path: ["links", index, "id"] });
+      }
+      linkIds.add(link.id);
+    }
+  });
+
 export const workspaceDraftSchema = z.object({
   profile: profileDraftSchema,
   links: z.array(profileLinkDraftSchema).max(30),
@@ -648,6 +783,7 @@ export const workspaceDraftSchema = z.object({
   repositories: z.array(repositoryDraftSchema).max(30).default([]),
   stackCategories: z.array(stackCategoryDraftSchema).max(20).default([]),
   stackItems: z.array(stackItemDraftSchema).max(60).default([]),
+  pathEntries: z.array(pathEntryDraftSchema).max(40).default([]),
 }).superRefine((data, context) => {
   const sectionIds = new Set<string>();
   for (const [index, section] of data.sections.entries()) {
@@ -830,6 +966,17 @@ export const workspaceDraftSchema = z.object({
     stackItemIds.add(item.id);
     stackTechnologyNames.add(normalizedName);
   }
+
+  const pathEntryIds = new Set<string>();
+  for (const [index, entry] of data.pathEntries.entries()) {
+    if (pathEntryIds.has(entry.id)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Path entry IDs must be unique.", path: ["pathEntries", index, "id"] });
+    }
+    if (data.profile.id && entry.profileId !== data.profile.id) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Path entries must belong to the current profile.", path: ["pathEntries", index, "profileId"] });
+    }
+    pathEntryIds.add(entry.id);
+  }
   if (featuredStackCount > 6) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose six featured technologies or fewer.", path: ["stackItems"] });
   }
@@ -965,6 +1112,38 @@ export const publicProfileSnapshotSchema = z.object({
       isEnabled: z.boolean(),
     }).strict()),
   }).strict()).default([]),
+  publishedPathEntries: z.array(z.object({
+    id: z.string().uuid(),
+    entryType: z.enum(PATH_ENTRY_TYPES),
+    title: z.string(),
+    organization: z.string(),
+    locationText: z.string(),
+    startDate: z.string(),
+    endDate: z.string(),
+    isCurrent: z.boolean(),
+    dateVisibility: z.enum(PATH_DATE_VISIBILITIES),
+    summary: z.string(),
+    highlights: z.array(z.object({
+      id: z.string().uuid(),
+      content: z.string(),
+      position: z.number().int().min(0),
+    }).strict()),
+    technologies: z.array(z.object({
+      id: z.string().uuid(),
+      technology: z.string(),
+      position: z.number().int().min(0),
+    }).strict()),
+    links: z.array(z.object({
+      id: z.string().uuid(),
+      kind: z.enum(PATH_LINK_KINDS),
+      projectId: z.string().uuid().or(z.literal("")),
+      label: z.string(),
+      url: safeHttpUrl,
+      position: z.number().int().min(0),
+      isEnabled: z.boolean(),
+    }).strict()),
+    position: z.number().int().min(0),
+  }).strict()).default([]),
   publishedAt: z.string(),
   isPublished: z.boolean(),
 });
@@ -977,6 +1156,7 @@ export type ProfileProjectDraftInput = z.infer<typeof projectDraftSchema>;
 export type ProfileRepositoryDraftInput = z.infer<typeof repositoryDraftSchema>;
 export type ProfileStackCategoryDraftInput = z.infer<typeof stackCategoryDraftSchema>;
 export type ProfileStackItemDraftInput = z.infer<typeof stackItemDraftSchema>;
+export type ProfilePathEntryDraftInput = z.infer<typeof pathEntryDraftSchema>;
 export type WorkspaceDraftInput = z.infer<typeof workspaceDraftSchema>;
 export type PublicLinkSnapshotInput = z.infer<typeof publicLinkSnapshotSchema>;
 export type PublicProfileSnapshotInput = z.infer<typeof publicProfileSnapshotSchema>;

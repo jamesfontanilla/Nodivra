@@ -9,6 +9,10 @@ import {
   type ProfileRepositoryDraft,
   type ProfileStackCategoryDraft,
   type ProfileStackItemDraft,
+  type ProfilePathEntryDraft,
+  type PathHighlightDraft,
+  type PathTechnologyDraft,
+  type PathLinkDraft,
   type RepositoryLinkDraft,
   type StackLinkDraft,
   type StackProjectDraft,
@@ -638,6 +642,128 @@ function createDemoStackItems(profileId: string): ProfileStackItemDraft[] {
   ];
 }
 
+function createDemoPathEntries(profileId: string): ProfilePathEntryDraft[] {
+  const timestamp = now();
+  const highlight = (id: string, entryId: string, content: string, position: number): PathHighlightDraft => ({
+    id,
+    profileId,
+    entryId,
+    content,
+    position,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  const technology = (id: string, entryId: string, name: string, position: number): PathTechnologyDraft => ({
+    id,
+    profileId,
+    entryId,
+    technology: name,
+    position,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  const link = (id: string, entryId: string, kind: PathLinkDraft["kind"], label: string, projectId: string, url: string, position: number): PathLinkDraft => ({
+    id,
+    profileId,
+    entryId,
+    kind,
+    projectId,
+    label,
+    url,
+    position,
+    isEnabled: true,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+
+  return [
+    {
+      id: "ec0f8f13-0c2b-4b0e-9001-000000000001",
+      profileId,
+      entryType: "work",
+      title: "Product systems designer",
+      organization: "Nodivra Studio",
+      locationText: "Austin, TX",
+      startDate: "2024-02-01",
+      endDate: "",
+      isCurrent: true,
+      dateVisibility: "exact",
+      summary: "I shape calm product systems for teams working through complex decisions, from first principle to polished surface.",
+      highlights: [
+        highlight("fc0f8f13-0c2b-4b0e-9001-000000000001", "ec0f8f13-0c2b-4b0e-9001-000000000001", "Built a reusable page and module language for developer-first identities.", 0),
+        highlight("fc0f8f13-0c2b-4b0e-9001-000000000002", "ec0f8f13-0c2b-4b0e-9001-000000000001", "Turned dense product status into a sequence of understandable next decisions.", 1),
+      ],
+      technologies: [
+        technology("gc0f8f13-0c2b-4b0e-9001-000000000001", "ec0f8f13-0c2b-4b0e-9001-000000000001", "Next.js", 0),
+        technology("gc0f8f13-0c2b-4b0e-9001-000000000002", "ec0f8f13-0c2b-4b0e-9001-000000000001", "TypeScript", 1),
+        technology("gc0f8f13-0c2b-4b0e-9001-000000000003", "ec0f8f13-0c2b-4b0e-9001-000000000001", "Supabase", 2),
+      ],
+      links: [
+        link("hc0f8f13-0c2b-4b0e-9001-000000000001", "ec0f8f13-0c2b-4b0e-9001-000000000001", "project", "Signal case study", "4c0f8f13-0c2b-4b0e-9001-000000000001", "", 0),
+        link("hc0f8f13-0c2b-4b0e-9001-000000000002", "ec0f8f13-0c2b-4b0e-9001-000000000001", "website", "Studio notes", "", "https://example.com/notes", 1),
+      ],
+      isPublished: true,
+      position: 0,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "ec0f8f13-0c2b-4b0e-9001-000000000002",
+      profileId,
+      entryType: "freelance",
+      title: "Independent product designer",
+      organization: "Selected client work",
+      locationText: "Remote",
+      startDate: "2021-06-01",
+      endDate: "2024-01-01",
+      isCurrent: false,
+      dateVisibility: "year_only",
+      summary: "Partnered with small teams to turn early product questions into usable systems, prototypes, and shipped interfaces.",
+      highlights: [
+        highlight("fc0f8f13-0c2b-4b0e-9001-000000000003", "ec0f8f13-0c2b-4b0e-9001-000000000002", "Moved projects from fuzzy brief to testable interaction model without adding process theatre.", 0),
+        highlight("fc0f8f13-0c2b-4b0e-9001-000000000004", "ec0f8f13-0c2b-4b0e-9001-000000000002", "Created durable handoff patterns for teams without dedicated design operations.", 1),
+      ],
+      technologies: [
+        technology("gc0f8f13-0c2b-4b0e-9001-000000000004", "ec0f8f13-0c2b-4b0e-9001-000000000002", "Figma", 0),
+        technology("gc0f8f13-0c2b-4b0e-9001-000000000005", "ec0f8f13-0c2b-4b0e-9001-000000000002", "React", 1),
+        technology("gc0f8f13-0c2b-4b0e-9001-000000000006", "ec0f8f13-0c2b-4b0e-9001-000000000002", "Accessibility", 2),
+      ],
+      links: [
+        link("hc0f8f13-0c2b-4b0e-9001-000000000003", "ec0f8f13-0c2b-4b0e-9001-000000000002", "project", "Quiet Hours case study", "4c0f8f13-0c2b-4b0e-9001-000000000002", "", 0),
+      ],
+      isPublished: true,
+      position: 1,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "ec0f8f13-0c2b-4b0e-9001-000000000003",
+      profileId,
+      entryType: "education",
+      title: "Human-computer interaction",
+      organization: "Independent study",
+      locationText: "Online",
+      startDate: "2016-08-01",
+      endDate: "2020-05-01",
+      isCurrent: false,
+      dateVisibility: "year_only",
+      summary: "A foundation in research, systems thinking, and the craft of making complex tools feel more legible.",
+      highlights: [
+        highlight("fc0f8f13-0c2b-4b0e-9001-000000000005", "ec0f8f13-0c2b-4b0e-9001-000000000003", "Studied how language, structure, and feedback shape trust in interfaces.", 0),
+      ],
+      technologies: [
+        technology("gc0f8f13-0c2b-4b0e-9001-000000000007", "ec0f8f13-0c2b-4b0e-9001-000000000003", "Research", 0),
+        technology("gc0f8f13-0c2b-4b0e-9001-000000000008", "ec0f8f13-0c2b-4b0e-9001-000000000003", "Writing", 1),
+      ],
+      links: [],
+      isPublished: true,
+      position: 2,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ];
+}
+
 function createAuditLogs(profileId: string): AuditLogEntry[] {
   const timestamp = now();
   return [
@@ -666,6 +792,7 @@ function createDemoStore(): WorkspaceSnapshot {
   const repositories = createDemoRepositories(profile.id);
   const stackCategories = createDemoStackCategories(profile.id);
   const stackItems = createDemoStackItems(profile.id);
+  const pathEntries = createDemoPathEntries(profile.id);
   return {
     profile,
     links,
@@ -675,6 +802,7 @@ function createDemoStore(): WorkspaceSnapshot {
     repositories,
     stackCategories,
     stackItems,
+    pathEntries,
     published: buildPublicProfileSnapshot(
       profile,
       links,
@@ -685,6 +813,7 @@ function createDemoStore(): WorkspaceSnapshot {
       repositories,
       stackCategories,
       stackItems,
+      pathEntries,
     ),
     auditLogs: createAuditLogs(profile.id),
     mode: "demo",
@@ -724,6 +853,7 @@ export function getDemoWorkspaceSnapshot(): WorkspaceSnapshot {
     repositories: structuredClone(store.repositories),
     stackCategories: structuredClone(store.stackCategories),
     stackItems: structuredClone(store.stackItems),
+    pathEntries: structuredClone(store.pathEntries),
     published: structuredClone(store.published),
     auditLogs: structuredClone(store.auditLogs),
     mode: "demo",

@@ -3,7 +3,7 @@ import {
   buildPublicProfileSnapshot,
   splitVisibleLinks,
 } from "@/lib/snapshot";
-import type { ProfileProjectDraft, ProfileRepositoryDraft, ProfileStackCategoryDraft, ProfileStackItemDraft } from "@/types/nodivra";
+import type { ProfilePathEntryDraft, ProfileProjectDraft, ProfileRepositoryDraft, ProfileStackCategoryDraft, ProfileStackItemDraft } from "@/types/nodivra";
 
 describe("public snapshot helpers", () => {
   it("sorts and filters links before publishing", () => {
@@ -406,5 +406,104 @@ describe("public snapshot helpers", () => {
     expect(snapshot.publishedStackItems).toHaveLength(1);
     expect(snapshot.publishedStackItems[0]?.projects.map((entry) => entry.projectId)).toEqual([publishedProject.id]);
     expect(snapshot.publishedStackItems[0]?.links[0]?.url).toBe("https://www.typescriptlang.org/docs/");
+  });
+
+  it("redacts year-only Path dates and omits private or unpublished project links", () => {
+    const profile = {
+      id: "11111111-1111-1111-1111-111111111111",
+      ownerId: "11111111-1111-1111-1111-111111111111",
+      handle: "jamie-fontanilla",
+      displayName: "Jamie Fontanilla",
+      headline: "",
+      bio: "",
+      locationText: "",
+      timezone: "UTC",
+      avatarInitials: "JF",
+      avatarUrl: "",
+      primaryCtaLabel: "",
+      primaryCtaUrl: "",
+      availabilityStatus: "available" as const,
+      isPublished: false,
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+    const project: ProfileProjectDraft = {
+      id: "22222222-2222-4222-8222-222222222222",
+      profileId: profile.id,
+      slug: "signal",
+      projectName: "Signal",
+      shortSummary: "Published project",
+      caseStudyMarkdown: "## Signal",
+      role: "Engineer",
+      technologies: ["TypeScript"],
+      projectType: "product",
+      startDate: "",
+      endDate: "",
+      status: "shipped",
+      coverImageUrl: "",
+      lessonsLearned: "",
+      tags: [],
+      isFeatured: false,
+      isPublished: true,
+      position: 0,
+      links: [],
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+    const entry: ProfilePathEntryDraft = {
+      id: "33333333-3333-4333-8333-333333333333",
+      profileId: profile.id,
+      entryType: "work",
+      title: "Product designer",
+      organization: "Nodivra Studio",
+      locationText: "Remote",
+      startDate: "2021-04-01",
+      endDate: "2023-09-01",
+      isCurrent: false,
+      dateVisibility: "year_only",
+      summary: "A public entry with a clear, bounded story.",
+      highlights: [{
+        id: "44444444-4444-4444-8444-444444444444",
+        profileId: profile.id,
+        entryId: "33333333-3333-4333-8333-333333333333",
+        content: "Made the next decision easier to see.",
+        position: 0,
+        createdAt: profile.createdAt,
+        updatedAt: profile.updatedAt,
+      }],
+      technologies: [{
+        id: "55555555-5555-4555-8555-555555555555",
+        profileId: profile.id,
+        entryId: "33333333-3333-4333-8333-333333333333",
+        technology: "TypeScript",
+        position: 0,
+        createdAt: profile.createdAt,
+        updatedAt: profile.updatedAt,
+      }],
+      links: [{
+        id: "66666666-6666-4666-8666-666666666666",
+        profileId: profile.id,
+        entryId: "33333333-3333-4333-8333-333333333333",
+        kind: "project",
+        projectId: project.id,
+        label: "Signal case study",
+        url: "",
+        position: 0,
+        isEnabled: true,
+        createdAt: profile.createdAt,
+        updatedAt: profile.updatedAt,
+      }],
+      isPublished: true,
+      position: 0,
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+    const privateEntry = { ...entry, id: "77777777-7777-4777-8777-777777777777", isPublished: false, position: 1 };
+    const snapshot = buildPublicProfileSnapshot(profile, [], profile.updatedAt, [], [], [project], [], [], [], [entry, privateEntry]);
+
+    expect(snapshot.publishedPathEntries).toHaveLength(1);
+    expect(snapshot.publishedPathEntries[0]?.startDate).toBe("2021");
+    expect(snapshot.publishedPathEntries[0]?.endDate).toBe("2023");
+    expect(snapshot.publishedPathEntries[0]?.links[0]?.projectId).toBe(project.id);
   });
 });

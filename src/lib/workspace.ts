@@ -9,6 +9,7 @@ import {
   sortRepositories,
   sortStackCategories,
   sortStackItems,
+  sortPathEntries,
   sortSections,
 } from "@/lib/snapshot";
 import {
@@ -19,6 +20,7 @@ import {
   projectDraftSchema,
   repositoryDraftSchema,
   stackItemDraftSchema,
+  pathEntryDraftSchema,
   publicProfileSnapshotSchema,
   toFieldErrors,
   workspaceDraftSchema,
@@ -29,6 +31,7 @@ import {
   type ProfileRepositoryDraftInput,
   type ProfileStackCategoryDraftInput,
   type ProfileStackItemDraftInput,
+  type ProfilePathEntryDraftInput,
   type ProfileSectionDraftInput,
   type WorkspaceDraftInput,
 } from "@/lib/validation";
@@ -46,6 +49,13 @@ import {
   type ProfileRepositoryDraft,
   type ProfileStackCategoryDraft,
   type ProfileStackItemDraft,
+  type ProfilePathEntryDraft,
+  type PathHighlightDraft,
+  type PathTechnologyDraft,
+  type PathLinkDraft,
+  type PathEntryType,
+  type PathDateVisibility,
+  type PathLinkKind,
   type ProjectLinkDraft,
   type ProjectLinkKind,
   type ProjectStatus,
@@ -295,6 +305,59 @@ type StackLinksRow = {
   updated_at: string;
 };
 
+type TimelineEntriesRow = {
+  id: string;
+  profile_id: string;
+  entry_type: PathEntryType;
+  title: string;
+  organization: string;
+  location_text: string;
+  start_date: string;
+  end_date: string | null;
+  is_current: boolean;
+  date_visibility: PathDateVisibility;
+  summary: string;
+  is_published: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+type TimelineHighlightsRow = {
+  id: string;
+  profile_id: string;
+  entry_id: string;
+  content: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type TimelineTechnologiesRow = {
+  id: string;
+  profile_id: string;
+  entry_id: string;
+  technology: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type TimelineLinksRow = {
+  id: string;
+  profile_id: string;
+  entry_id: string;
+  kind: PathLinkKind;
+  project_id: string | null;
+  label: string;
+  url: string;
+  position: number;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 type PublicProfileSettingsRow = {
   id: string;
   profile_id: string;
@@ -316,6 +379,7 @@ type PublicProfileSettingsRow = {
   published_repositories: unknown;
   published_stack_categories: unknown;
   published_stack_items: unknown;
+  published_path_entries: unknown;
   is_published: boolean;
   published_at: string | null;
   updated_at: string;
@@ -417,6 +481,7 @@ export function createBlankWorkspace(
     repositories: [],
     stackCategories: createStarterStackCategories(profile.id),
     stackItems: [],
+    pathEntries: [],
     published: null,
     auditLogs: [],
     mode,
@@ -668,6 +733,76 @@ function stackItemRowToDraft(
   return parsed.success ? parsed.data : null;
 }
 
+function timelineHighlightRowToDraft(row: TimelineHighlightsRow): PathHighlightDraft {
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    entryId: row.entry_id,
+    content: row.content,
+    position: row.position,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function timelineTechnologyRowToDraft(row: TimelineTechnologiesRow): PathTechnologyDraft {
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    entryId: row.entry_id,
+    technology: row.technology,
+    position: row.position,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function timelineLinkRowToDraft(row: TimelineLinksRow): PathLinkDraft {
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    entryId: row.entry_id,
+    kind: row.kind,
+    projectId: row.project_id ?? "",
+    label: row.label,
+    url: row.url,
+    position: row.position,
+    isEnabled: row.is_enabled,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function timelineEntryRowToDraft(
+  row: TimelineEntriesRow,
+  highlights: TimelineHighlightsRow[],
+  technologies: TimelineTechnologiesRow[],
+  links: TimelineLinksRow[],
+): ProfilePathEntryDraft | null {
+  const candidate = {
+    id: row.id,
+    profileId: row.profile_id,
+    entryType: row.entry_type,
+    title: row.title,
+    organization: row.organization,
+    locationText: row.location_text,
+    startDate: row.start_date,
+    endDate: row.end_date ?? "",
+    isCurrent: row.is_current,
+    dateVisibility: row.date_visibility,
+    summary: row.summary,
+    highlights: [...highlights].sort((left, right) => left.position - right.position).map(timelineHighlightRowToDraft),
+    technologies: [...technologies].sort((left, right) => left.position - right.position).map(timelineTechnologyRowToDraft),
+    links: [...links].sort((left, right) => left.position - right.position).map(timelineLinkRowToDraft),
+    isPublished: row.is_published,
+    position: row.position,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+  const parsed = pathEntryDraftSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
+}
+
 function normalizeProjectDrafts(
   profileId: string,
   projects: ProfileProjectDraftInput[],
@@ -775,6 +910,49 @@ function normalizeStackItems(
   });
 }
 
+function normalizePathEntries(
+  profileId: string,
+  entries: ProfilePathEntryDraftInput[],
+  existingEntries: ProfilePathEntryDraft[] = [],
+) {
+  const timestamp = nowIso();
+  const existingById = new Map(existingEntries.map((entry) => [entry.id, entry]));
+  return sortPathEntries(entries).map<ProfilePathEntryDraft>((entry, position) => {
+    const existing = existingById.get(entry.id);
+    return {
+      ...entry,
+      profileId,
+      position,
+      highlights: entry.highlights.map((highlight, highlightPosition) => ({
+        ...highlight,
+        profileId,
+        entryId: entry.id,
+        position: highlightPosition,
+        createdAt: existing?.highlights.find((item) => item.id === highlight.id)?.createdAt ?? highlight.createdAt ?? timestamp,
+        updatedAt: timestamp,
+      })),
+      technologies: entry.technologies.map((technology, technologyPosition) => ({
+        ...technology,
+        profileId,
+        entryId: entry.id,
+        position: technologyPosition,
+        createdAt: existing?.technologies.find((item) => item.id === technology.id)?.createdAt ?? technology.createdAt ?? timestamp,
+        updatedAt: timestamp,
+      })),
+      links: entry.links.map((link, linkPosition) => ({
+        ...link,
+        profileId,
+        entryId: entry.id,
+        position: linkPosition,
+        createdAt: existing?.links.find((item) => item.id === link.id)?.createdAt ?? link.createdAt ?? timestamp,
+        updatedAt: timestamp,
+      })),
+      createdAt: existing?.createdAt ?? entry.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    };
+  });
+}
+
 function auditRowToEntry(row: AuditLogsRow): AuditLogEntry {
   return {
     id: row.id,
@@ -824,6 +1002,7 @@ function publicRowToSnapshot(row: PublicProfileSettingsRow): PublicProfileSnapsh
     publishedRepositories: Array.isArray(row.published_repositories) ? row.published_repositories : [],
     publishedStackCategories: Array.isArray(row.published_stack_categories) ? row.published_stack_categories : [],
     publishedStackItems: Array.isArray(row.published_stack_items) ? row.published_stack_items : [],
+    publishedPathEntries: Array.isArray(row.published_path_entries) ? row.published_path_entries : [],
     publishedAt: row.published_at ?? row.updated_at,
     isPublished: row.is_published,
   };
@@ -1229,6 +1408,79 @@ function mapStackLinksToRows(profileId: string, items: ProfileStackItemDraftInpu
   })));
 }
 
+function mapTimelineEntryInputsToRows(
+  profileId: string,
+  entries: ProfilePathEntryDraftInput[],
+  existingEntries: Array<{ id: string; created_at?: string; createdAt?: string }>,
+): TimelineEntriesRow[] {
+  const timestamp = nowIso();
+  const existingById = new Map(existingEntries.map((entry) => [entry.id, entry]));
+  return sortPathEntries(entries).map((entry, position) => {
+    const existing = existingById.get(entry.id);
+    return {
+      id: entry.id,
+      profile_id: profileId,
+      entry_type: entry.entryType,
+      title: entry.title.trim(),
+      organization: entry.organization.trim(),
+      location_text: entry.locationText.trim(),
+      start_date: entry.startDate,
+      end_date: entry.endDate || null,
+      is_current: entry.isCurrent,
+      date_visibility: entry.dateVisibility,
+      summary: entry.summary.trim(),
+      is_published: entry.isPublished,
+      position,
+      created_at: existing?.created_at ?? existing?.createdAt ?? entry.createdAt ?? timestamp,
+      updated_at: timestamp,
+      deleted_at: null,
+    };
+  });
+}
+
+function mapTimelineHighlightsToRows(profileId: string, entries: ProfilePathEntryDraftInput[]): TimelineHighlightsRow[] {
+  const timestamp = nowIso();
+  return entries.flatMap((entry) => entry.highlights.map((highlight, position) => ({
+    id: highlight.id,
+    profile_id: profileId,
+    entry_id: entry.id,
+    content: highlight.content.trim(),
+    position,
+    created_at: highlight.createdAt ?? timestamp,
+    updated_at: timestamp,
+  })));
+}
+
+function mapTimelineTechnologiesToRows(profileId: string, entries: ProfilePathEntryDraftInput[]): TimelineTechnologiesRow[] {
+  const timestamp = nowIso();
+  return entries.flatMap((entry) => entry.technologies.map((technology, position) => ({
+    id: technology.id,
+    profile_id: profileId,
+    entry_id: entry.id,
+    technology: technology.technology.trim(),
+    position,
+    created_at: technology.createdAt ?? timestamp,
+    updated_at: timestamp,
+  })));
+}
+
+function mapTimelineLinksToRows(profileId: string, entries: ProfilePathEntryDraftInput[]): TimelineLinksRow[] {
+  const timestamp = nowIso();
+  return entries.flatMap((entry) => entry.links.map((link, position) => ({
+    id: link.id,
+    profile_id: profileId,
+    entry_id: entry.id,
+    kind: link.kind,
+    project_id: link.projectId || null,
+    label: link.label.trim(),
+    url: link.url.trim(),
+    position,
+    is_enabled: link.isEnabled,
+    created_at: link.createdAt ?? timestamp,
+    updated_at: timestamp,
+  })));
+}
+
 function createAuditRow(
   profileId: string,
   actorId: string,
@@ -1267,7 +1519,7 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
   }
 
   const profileId = profileRow.id;
-  const [linksResult, sectionsResult, blocksResult, projectsResult, projectTechnologiesResult, projectLinksResult, projectTagsResult, repositoriesResult, repositoryTopicsResult, repositoryLanguagesResult, repositoryLinksResult, stackCategoriesResult, stackItemsResult, stackProjectsResult, stackLinksResult, publicResult, auditResult] = await Promise.all([
+  const [linksResult, sectionsResult, blocksResult, projectsResult, projectTechnologiesResult, projectLinksResult, projectTagsResult, repositoriesResult, repositoryTopicsResult, repositoryLanguagesResult, repositoryLinksResult, stackCategoriesResult, stackItemsResult, stackProjectsResult, stackLinksResult, pathEntriesResult, pathHighlightsResult, pathTechnologiesResult, pathLinksResult, publicResult, auditResult] = await Promise.all([
     client
       .from("profile_links")
       .select("*")
@@ -1366,6 +1618,31 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       .order("position", { ascending: true })
       .limit(240),
     client
+      .from("timeline_entries")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null)
+      .order("position", { ascending: true })
+      .limit(40),
+    client
+      .from("timeline_highlights")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(320),
+    client
+      .from("timeline_technologies")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(320),
+    client
+      .from("timeline_links")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(160),
+    client
       .from("public_profile_settings")
       .select("*")
       .eq("profile_id", profileId)
@@ -1426,6 +1703,18 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       );
     })
     .filter((item): item is ProfileStackItemDraft => item !== null);
+  const pathEntriesRows = (pathEntriesResult.data ?? []) as TimelineEntriesRow[];
+  const pathHighlights = (pathHighlightsResult.data ?? []) as TimelineHighlightsRow[];
+  const pathTechnologies = (pathTechnologiesResult.data ?? []) as TimelineTechnologiesRow[];
+  const pathLinks = (pathLinksResult.data ?? []) as TimelineLinksRow[];
+  const pathEntries = pathEntriesRows
+    .map((row) => timelineEntryRowToDraft(
+      row,
+      pathHighlights.filter((highlight) => highlight.entry_id === row.id),
+      pathTechnologies.filter((technology) => technology.entry_id === row.id),
+      pathLinks.filter((link) => link.entry_id === row.id),
+    ))
+    .filter((entry): entry is ProfilePathEntryDraft => entry !== null);
   const published = publicResult.data ? publicRowToSnapshot(publicResult.data) : null;
   const auditLogs = (auditResult.data ?? []).map(auditRowToEntry);
 
@@ -1438,6 +1727,7 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
     repositories,
     stackCategories,
     stackItems,
+    pathEntries,
     published,
     auditLogs,
     mode: "authenticated",
@@ -1579,6 +1869,11 @@ async function persistDemoWorkspace(
     input.stackItems,
     store.stackItems,
   );
+  const nextPathEntries = normalizePathEntries(
+    nextProfile.id,
+    input.pathEntries,
+    store.pathEntries,
+  );
   store.profile = nextProfile;
   store.links = nextLinks.map(linkRowToDraft);
   store.sections = nextSections;
@@ -1587,6 +1882,7 @@ async function persistDemoWorkspace(
   store.repositories = nextRepositories;
   store.stackCategories = nextStackCategories;
   store.stackItems = nextStackItems;
+  store.pathEntries = nextPathEntries;
   store.published = publish
     ? buildPublicProfileSnapshot(
         nextProfile,
@@ -1598,6 +1894,7 @@ async function persistDemoWorkspace(
         store.repositories,
         store.stackCategories,
         store.stackItems,
+        store.pathEntries,
       )
     : store.published;
   store.auditLogs = [
@@ -1606,8 +1903,8 @@ async function persistDemoWorkspace(
       nextProfile.ownerId,
       publish ? "profile_published" : "profile_saved",
       publish
-        ? `Published ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, and ${store.stackItems.length} stack items`
-        : `Saved ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, and ${store.stackItems.length} stack items`,
+        ? `Published ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, and ${store.pathEntries.length} Path entries`
+        : `Saved ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, and ${store.pathEntries.length} Path entries`,
       {
         published: publish,
         linkCount: store.links.length,
@@ -1617,6 +1914,7 @@ async function persistDemoWorkspace(
         repositoryCount: store.repositories.length,
         stackCategoryCount: store.stackCategories.length,
         stackItemCount: store.stackItems.length,
+        pathEntryCount: store.pathEntries.length,
       },
     ),
     ...store.auditLogs,
@@ -1748,7 +2046,7 @@ async function persistSupabaseWorkspace(
     }
   }
 
-  const [{ data: existingSectionsMany }, { data: existingBlocksMany }, { data: existingProjectsMany }, { data: existingProjectLinksMany }, { data: existingRepositoriesMany }, { data: existingRepositoryLinksMany }, { data: existingStackCategoriesMany }, { data: existingStackItemsMany }] = await Promise.all([
+  const [{ data: existingSectionsMany }, { data: existingBlocksMany }, { data: existingProjectsMany }, { data: existingProjectLinksMany }, { data: existingRepositoriesMany }, { data: existingRepositoryLinksMany }, { data: existingStackCategoriesMany }, { data: existingStackItemsMany }, { data: existingPathEntriesMany }] = await Promise.all([
     client
       .from("profile_sections")
       .select("*")
@@ -1784,6 +2082,11 @@ async function persistSupabaseWorkspace(
       .is("deleted_at", null),
     client
       .from("stack_items")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null),
+    client
+      .from("timeline_entries")
       .select("*")
       .eq("profile_id", profileId)
       .is("deleted_at", null),
@@ -2042,6 +2345,45 @@ async function persistSupabaseWorkspace(
     if (error) return { ok: false, message: error.message, fieldErrors: {} };
   }
 
+  const nextPathEntries = mapTimelineEntryInputsToRows(
+    profileId,
+    input.pathEntries,
+    (existingPathEntriesMany ?? []) as TimelineEntriesRow[],
+  );
+  const nextPathEntryDrafts = normalizePathEntries(profileId, input.pathEntries);
+  if (nextPathEntries.length > 0) {
+    const { error: pathEntryUpsertError } = await client.from("timeline_entries").upsert(nextPathEntries);
+    if (pathEntryUpsertError) return { ok: false, message: pathEntryUpsertError.message, fieldErrors: {} };
+  }
+
+  const pathChildTables = ["timeline_highlights", "timeline_technologies", "timeline_links"] as const;
+  for (const table of pathChildTables) {
+    const { error: childDeleteError } = await client.from(table).delete().eq("profile_id", profileId);
+    if (childDeleteError) return { ok: false, message: childDeleteError.message, fieldErrors: {} };
+  }
+  const pathHighlights = mapTimelineHighlightsToRows(profileId, input.pathEntries);
+  const pathTechnologies = mapTimelineTechnologiesToRows(profileId, input.pathEntries);
+  const pathLinks = mapTimelineLinksToRows(profileId, input.pathEntries);
+  if (pathHighlights.length > 0) {
+    const { error } = await client.from("timeline_highlights").insert(pathHighlights);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  if (pathTechnologies.length > 0) {
+    const { error } = await client.from("timeline_technologies").insert(pathTechnologies);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  if (pathLinks.length > 0) {
+    const { error } = await client.from("timeline_links").insert(pathLinks);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  const stalePathEntryIds = (existingPathEntriesMany ?? [])
+    .map((entry) => entry.id)
+    .filter((id) => !nextPathEntries.some((entry) => entry.id === id));
+  if (stalePathEntryIds.length > 0) {
+    const { error } = await client.from("timeline_entries").delete().eq("profile_id", profileId).in("id", stalePathEntryIds);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+
   if (publish) {
     const published = buildPublicProfileSnapshot(
       profileRowToDraft(profileRow),
@@ -2055,6 +2397,7 @@ async function persistSupabaseWorkspace(
       nextRepositoryDrafts,
       nextStackCategoryDrafts,
       nextStackItemDrafts,
+      nextPathEntryDrafts,
     );
     const publicRow = {
       profile_id: profileId,
@@ -2076,6 +2419,7 @@ async function persistSupabaseWorkspace(
       published_repositories: published.publishedRepositories,
       published_stack_categories: published.publishedStackCategories,
       published_stack_items: published.publishedStackItems,
+      published_path_entries: published.publishedPathEntries,
       is_published: true,
       published_at: nowIso(),
       updated_at: nowIso(),
@@ -2099,8 +2443,8 @@ async function persistSupabaseWorkspace(
     viewer.userId,
     publish ? "profile_published" : "profile_saved",
     publish
-      ? `Published ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, and ${nextStackItemDrafts.length} stack items`
-      : `Saved ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, and ${nextStackItemDrafts.length} stack items`,
+      ? `Published ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, and ${nextPathEntryDrafts.length} Path entries`
+      : `Saved ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, and ${nextPathEntryDrafts.length} Path entries`,
     {
       published: publish,
       linkCount: nextLinks.length,
@@ -2110,6 +2454,7 @@ async function persistSupabaseWorkspace(
       repositoryCount: nextRepositories.length,
       stackCategoryCount: nextStackCategoryDrafts.length,
       stackItemCount: nextStackItemDrafts.length,
+      pathEntryCount: nextPathEntryDrafts.length,
       handle: profileRow.handle,
     },
   );

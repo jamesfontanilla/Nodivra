@@ -5,6 +5,7 @@ import { PublicBlocks } from "@/components/public-blocks";
 import { PublicProjects } from "@/components/project-detail";
 import { PublicRepositories } from "@/components/repository-detail";
 import { PublicStack } from "@/components/stack-detail";
+import { PublicPath } from "@/components/path-detail";
 import { Reveal } from "@/components/reveal";
 import { Badge, Panel } from "@/components/ui";
 import { buildPublicProfileMetadata } from "@/lib/metadata";
@@ -45,6 +46,11 @@ export default async function PublicProfilePage({
           <Badge tone="muted">Public profile</Badge>
         </div>
         <PublicProfileCard profile={activeProfile} mode="public" />
+        <PublicPath
+          entries={activeProfile.publishedPathEntries}
+          projects={activeProfile.publishedProjects}
+          profileHandle={activeProfile.handle}
+        />
         <PublicBlocks
           sections={activeProfile.publishedSections}
           blocks={activeProfile.publishedBlocks}
