@@ -10,6 +10,7 @@ import {
   repositoryDraftSchema,
   pathEntryDraftSchema,
   noteDraftSchema,
+  talkDraftSchema,
   stackItemDraftSchema,
   workspaceDraftSchema,
 } from "@/lib/validation";
@@ -140,6 +141,32 @@ describe("validation helpers", () => {
       publishedAt: isPublished ? "2026-07-12" : "",
       readingTimeText: "3 min read",
       canonicalUrl: "",
+      isPublished,
+      isFeatured: false,
+      position: 0,
+      links: [],
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+  }
+
+  function talk(id: string, slug = "conference-talk", isPublished = false) {
+    return {
+      id,
+      profileId,
+      title: "Designing for the second read",
+      slug,
+      eventName: "Nodivra Sessions",
+      eventDate: "2026-07-20",
+      locationText: "Manila / remote",
+      format: "conference",
+      role: "Speaker",
+      summary: "A bounded summary of the choices behind a useful public interface.",
+      slidesUrl: "https://example.com/slides",
+      recordingUrl: "https://example.com/recording",
+      eventUrl: "https://example.com/event",
+      coverImageUrl: "",
+      tags: ["systems", "design"],
       isPublished,
       isFeatured: false,
       position: 0,
@@ -428,6 +455,37 @@ describe("validation helpers", () => {
     expect(unsafeMarkdown.success).toBe(false);
     expect(missingPublicationDate.success).toBe(false);
     expect(duplicateSlugs.success).toBe(false);
+  });
+
+  it("keeps Talks dated, safe, and explicitly related", () => {
+    const valid = talkDraftSchema.safeParse(talk("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeef", "safe-talk", true));
+    const unsafeUrl = talkDraftSchema.safeParse({ ...talk("ffffffff-ffff-4fff-8fff-ffffffffffff"), recordingUrl: "javascript:alert(1)" });
+    const missingDate = talkDraftSchema.safeParse({ ...talk("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab"), eventDate: "" });
+    const duplicateTags = talkDraftSchema.safeParse({ ...talk("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbc"), tags: ["Systems", "systems"] });
+    const externalWithRelation = talkDraftSchema.safeParse({
+      ...talk("cccccccc-cccc-4ccc-8ccc-cccccccccccd"),
+      links: [{
+        id: "dddddddd-dddd-4ddd-8ddd-ddddddddddde",
+        profileId,
+        talkId: "cccccccc-cccc-4ccc-8ccc-cccccccccccd",
+        kind: "website",
+        projectId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeef",
+        stackItemId: "",
+        noteId: "",
+        label: "Related site",
+        url: "https://example.com",
+        position: 0,
+        isEnabled: true,
+        createdAt: "2026-07-18T00:00:00.000Z",
+        updatedAt: "2026-07-18T00:00:00.000Z",
+      }],
+    });
+
+    expect(valid.success).toBe(true);
+    expect(unsafeUrl.success).toBe(false);
+    expect(missingDate.success).toBe(false);
+    expect(duplicateTags.success).toBe(false);
+    expect(externalWithRelation.success).toBe(false);
   });
 
   it("validates controlled Stack categories, icons, ownership, and project links", () => {

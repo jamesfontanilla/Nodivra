@@ -3,7 +3,7 @@ import {
   buildPublicProfileSnapshot,
   splitVisibleLinks,
 } from "@/lib/snapshot";
-import type { ProfileNoteDraft, ProfilePathEntryDraft, ProfileProjectDraft, ProfileRepositoryDraft, ProfileStackCategoryDraft, ProfileStackItemDraft } from "@/types/nodivra";
+import type { ProfileNoteDraft, ProfilePathEntryDraft, ProfileProjectDraft, ProfileRepositoryDraft, ProfileStackCategoryDraft, ProfileStackItemDraft, ProfileTalkDraft } from "@/types/nodivra";
 
 describe("public snapshot helpers", () => {
   it("sorts and filters links before publishing", () => {
@@ -563,5 +563,83 @@ describe("public snapshot helpers", () => {
     expect(snapshot.publishedNotes).toHaveLength(1);
     expect(snapshot.publishedNotes[0]?.slug).toBe("a-public-note");
     expect(snapshot.publishedNotes[0]?.links).toHaveLength(0);
+  });
+
+  it("publishes Talks without leaking private related records", () => {
+    const profile = {
+      id: "11111111-1111-1111-1111-111111111111",
+      ownerId: "11111111-1111-1111-1111-111111111111",
+      handle: "jamie-fontanilla",
+      displayName: "Jamie Fontanilla",
+      headline: "",
+      bio: "",
+      locationText: "",
+      timezone: "UTC",
+      avatarInitials: "JF",
+      avatarUrl: "",
+      primaryCtaLabel: "",
+      primaryCtaUrl: "",
+      availabilityStatus: "available" as const,
+      isPublished: false,
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+    const talk: ProfileTalkDraft = {
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbc",
+      profileId: profile.id,
+      title: "The second read",
+      slug: "the-second-read",
+      eventName: "Nodivra Sessions",
+      eventDate: "2026-07-20",
+      locationText: "Remote",
+      format: "conference",
+      role: "Speaker",
+      summary: "A bounded summary of the useful idea behind the appearance.",
+      slidesUrl: "https://example.com/slides",
+      recordingUrl: "",
+      eventUrl: "",
+      coverImageUrl: "",
+      tags: ["systems"],
+      isPublished: true,
+      isFeatured: true,
+      position: 0,
+      links: [{
+        id: "cccccccc-cccc-4ccc-8ccc-cccccccccccd",
+        profileId: profile.id,
+        talkId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbc",
+        kind: "project",
+        projectId: "dddddddd-dddd-4ddd-8ddd-ddddddddddde",
+        stackItemId: "",
+        noteId: "",
+        label: "Private project",
+        url: "",
+        position: 0,
+        isEnabled: true,
+        createdAt: profile.createdAt,
+        updatedAt: profile.updatedAt,
+      }, {
+        id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeef",
+        profileId: profile.id,
+        talkId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbc",
+        kind: "website",
+        projectId: "",
+        stackItemId: "",
+        noteId: "",
+        label: "Event page",
+        url: "https://example.com/event",
+        position: 1,
+        isEnabled: true,
+        createdAt: profile.createdAt,
+        updatedAt: profile.updatedAt,
+      }],
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+    const privateTalk = { ...talk, id: "ffffffff-ffff-4fff-8fff-ffffffffffff", slug: "private-talk", isPublished: false, isFeatured: false };
+    const snapshot = buildPublicProfileSnapshot(profile, [], profile.updatedAt, [], [], [], [], [], [], [], [], [talk, privateTalk]);
+
+    expect(snapshot.publishedTalks).toHaveLength(1);
+    expect(snapshot.publishedTalks[0]?.slug).toBe("the-second-read");
+    expect(snapshot.publishedTalks[0]?.links.map((link) => link.kind)).toEqual(["website"]);
   });
 });

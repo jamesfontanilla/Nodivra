@@ -3,6 +3,7 @@ import { getSiteUrl, siteName, siteTagline } from "@/lib/site";
 import type { PublicProfileSnapshot } from "@/types/nodivra";
 import type { PublicProjectSnapshot } from "@/types/nodivra";
 import type { PublicNoteSnapshot } from "@/types/nodivra";
+import type { PublicTalkSnapshot } from "@/types/nodivra";
 
 function buildDescription(profile?: PublicProfileSnapshot | null) {
   if (profile?.headline) {
@@ -104,6 +105,36 @@ export function buildPublicNoteMetadata(
       title,
       description,
       ...(note.coverImageUrl ? { images: [note.coverImageUrl] } : {}),
+    },
+  };
+}
+
+export function buildPublicTalkMetadata(
+  profile: PublicProfileSnapshot,
+  talk: PublicTalkSnapshot,
+): Metadata {
+  const title = `${talk.title} · ${profile.displayName} · ${siteName}`;
+  const description = talk.summary || buildDescription(profile);
+  const canonical = new URL(`/u/${profile.handle}/talks/${talk.slug}`, getSiteUrl()).toString();
+  const openGraph = {
+    title,
+    description,
+    url: canonical,
+    siteName,
+    type: "article" as const,
+    ...(talk.coverImageUrl ? { images: [{ url: talk.coverImageUrl, alt: talk.title }] } : {}),
+  };
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph,
+    twitter: {
+      card: talk.coverImageUrl ? "summary_large_image" : "summary",
+      title,
+      description,
+      ...(talk.coverImageUrl ? { images: [talk.coverImageUrl] } : {}),
     },
   };
 }

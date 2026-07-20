@@ -17,6 +17,8 @@ import {
   PATH_ENTRY_TYPES,
   PATH_LINK_KINDS,
   NOTE_LINK_KINDS,
+  TALK_FORMATS,
+  TALK_LINK_KINDS,
 } from "@/types/nodivra";
 
 const handlePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -786,7 +788,7 @@ export const pathEntryDraftSchema = z
     }
   });
 
-const noteDate = z
+const dateOnly = (message: string) => z
   .string()
   .transform((value) => value.trim())
   .refine((value) => {
@@ -794,7 +796,12 @@ const noteDate = z
     if (!pathDatePattern.test(value)) return false;
     const parsed = new Date(`${value}T00:00:00.000Z`);
     return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-  }, { message: "Use a valid publication date in YYYY-MM-DD format." });
+  }, { message });
+
+const noteDate = dateOnly("Use a valid publication date in YYYY-MM-DD format.");
+const talkDate = dateOnly("Use a valid event date in YYYY-MM-DD format.").refine((value) => value.length > 0, {
+  message: "Event date is required.",
+});
 
 const noteLinkDraftSchema = z
   .object({
@@ -865,6 +872,93 @@ export const noteDraftSchema = z
     }
   });
 
+const talkLinkDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    talkId: z.string().uuid(),
+    kind: z.enum(TALK_LINK_KINDS),
+    projectId: z.string().uuid().or(z.literal("")),
+    stackItemId: z.string().uuid().or(z.literal("")),
+    noteId: z.string().uuid().or(z.literal("")),
+    label: requiredText(72, "Talk link labels must be 72 characters or fewer."),
+    url: safeHttpUrl,
+    position: z.number().int().min(0),
+    isEnabled: z.boolean().default(true),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict()
+  .superRefine((data, context) => {
+    const relationCount = [data.projectId, data.stackItemId, data.noteId].filter(Boolean).length;
+    if (data.kind === "project") {
+      if (!data.projectId) context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose a related project.", path: ["projectId"] });
+      if (relationCount !== 1 || data.stackItemId || data.noteId || data.url) context.addIssue({ code: z.ZodIssueCode.custom, message: "Project talk links must use one internal project.", path: ["projectId"] });
+    } else if (data.kind === "stack") {
+      if (!data.stackItemId) context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose a related Stack item.", path: ["stackItemId"] });
+      if (relationCount !== 1 || data.projectId || data.noteId || data.url) context.addIssue({ code: z.ZodIssueCode.custom, message: "Stack talk links must use one internal Stack item.", path: ["stackItemId"] });
+    } else if (data.kind === "note") {
+      if (!data.noteId) context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose a related Note.", path: ["noteId"] });
+      if (relationCount !== 1 || data.projectId || data.stackItemId || data.url) context.addIssue({ code: z.ZodIssueCode.custom, message: "Note talk links must use one internal Note.", path: ["noteId"] });
+    } else {
+      if (!data.url) context.addIssue({ code: z.ZodIssueCode.custom, message: "Talk link URL is required.", path: ["url"] });
+      if (relationCount > 0) context.addIssue({ code: z.ZodIssueCode.custom, message: "External talk links cannot reference workspace records.", path: ["url"] });
+    }
+  });
+
+export const talkDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    title: requiredText(96, "Talk titles must be 96 characters or fewer."),
+    slug: z
+      .string()
+      .transform((value) => value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, ""))
+      .refine((value) => value.length >= 1 && value.length <= 96, { message: "Talk slugs must be 1 to 96 characters." }),
+    eventName: requiredText(96, "Event names must be 96 characters or fewer."),
+    eventDate: talkDate,
+    locationText: shortText(96, "Locations must be 96 characters or fewer.").default(""),
+    format: z.enum(TALK_FORMATS),
+    role: requiredText(72, "Talk roles must be 72 characters or fewer."),
+    summary: requiredText(600, "Talk summaries must be 600 characters or fewer.")
+      .refine((value) => !/<[^>]+>|(?:javascript|data):/i.test(value), { message: "Talk summaries cannot contain HTML or unsafe content." }),
+    slidesUrl: optionalSafeHttpUrl,
+    recordingUrl: optionalSafeHttpUrl,
+    eventUrl: optionalSafeHttpUrl,
+    coverImageUrl: optionalSafeHttpUrl,
+    tags: z.array(requiredText(32, "Talk tags must be 32 characters or fewer.")).max(8, "Use eight tags or fewer."),
+    isPublished: z.boolean().default(false),
+    isFeatured: z.boolean().default(false),
+    position: z.number().int().min(0),
+    links: z.array(talkLinkDraftSchema).max(8),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict()
+  .superRefine((data, context) => {
+    if (data.isFeatured && !data.isPublished) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Only published Talks can be featured.", path: ["isFeatured"] });
+    }
+    const tags = new Set<string>();
+    for (const [index, tag] of data.tags.entries()) {
+      const normalizedTag = tag.toLowerCase();
+      if (tags.has(normalizedTag)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Talk tags must be unique.", path: ["tags", index] });
+      }
+      tags.add(normalizedTag);
+    }
+    const linkIds = new Set<string>();
+    for (const [index, link] of data.links.entries()) {
+      if (link.profileId !== data.profileId || link.talkId !== data.id) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Talk links must belong to their Talk.", path: ["links", index] });
+      }
+      if (linkIds.has(link.id)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Talk link IDs must be unique.", path: ["links", index, "id"] });
+      }
+      linkIds.add(link.id);
+    }
+  });
+
 export const workspaceDraftSchema = z.object({
   profile: profileDraftSchema,
   links: z.array(profileLinkDraftSchema).max(30),
@@ -876,6 +970,7 @@ export const workspaceDraftSchema = z.object({
   stackItems: z.array(stackItemDraftSchema).max(60).default([]),
   pathEntries: z.array(pathEntryDraftSchema).max(40).default([]),
   notes: z.array(noteDraftSchema).max(40).default([]),
+  talks: z.array(talkDraftSchema).max(40).default([]),
 }).superRefine((data, context) => {
   const sectionIds = new Set<string>();
   for (const [index, section] of data.sections.entries()) {
@@ -1071,7 +1166,7 @@ export const workspaceDraftSchema = z.object({
   }
   const noteIds = new Set<string>();
   const noteSlugs = new Set<string>();
-  const workspaceProjectIds = new Set(data.projects.map((project) => project.id));
+  const workspaceProjectIds = new Set(data.projects.filter((project) => project.profileId === data.profile.id).map((project) => project.id));
   let featuredNoteCount = 0;
   for (const [index, note] of data.notes.entries()) {
     if (noteIds.has(note.id)) {
@@ -1104,6 +1199,39 @@ export const workspaceDraftSchema = z.object({
   }
   if (featuredNoteCount > 3) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose three featured notes or fewer.", path: ["notes"] });
+  }
+
+  const talkIds = new Set<string>();
+  const talkSlugs = new Set<string>();
+  const workspaceStackItemIds = new Set(data.stackItems.filter((item) => item.profileId === data.profile.id).map((item) => item.id));
+  let featuredTalkCount = 0;
+  for (const [index, talk] of data.talks.entries()) {
+    if (talkIds.has(talk.id)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Talk IDs must be unique.", path: ["talks", index, "id"] });
+    }
+    if (talkSlugs.has(talk.slug)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Talk slugs must be unique.", path: ["talks", index, "slug"] });
+    }
+    if (data.profile.id && talk.profileId !== data.profile.id) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Talks must belong to the current profile.", path: ["talks", index, "profileId"] });
+    }
+    if (talk.isFeatured) featuredTalkCount += 1;
+    for (const [linkIndex, link] of talk.links.entries()) {
+      if (link.kind === "project" && !workspaceProjectIds.has(link.projectId)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Talk project links must reference a project in this workspace.", path: ["talks", index, "links", linkIndex, "projectId"] });
+      }
+      if (link.kind === "stack" && !workspaceStackItemIds.has(link.stackItemId)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Talk Stack links must reference a Stack item in this workspace.", path: ["talks", index, "links", linkIndex, "stackItemId"] });
+      }
+      if (link.kind === "note" && !noteIds.has(link.noteId)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Talk Note links must reference a Note in this workspace.", path: ["talks", index, "links", linkIndex, "noteId"] });
+      }
+    }
+    talkIds.add(talk.id);
+    talkSlugs.add(talk.slug);
+  }
+  if (featuredTalkCount > 3) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose three featured Talks or fewer.", path: ["talks"] });
   }
 });
 
@@ -1285,6 +1413,35 @@ export const publicProfileSnapshotSchema = z.object({
       isEnabled: z.boolean(),
     }).strict()),
   }).strict()).default([]),
+  publishedTalks: z.array(z.object({
+    id: z.string().uuid(),
+    title: z.string(),
+    slug: z.string(),
+    eventName: z.string(),
+    eventDate: z.string(),
+    locationText: z.string(),
+    format: z.enum(TALK_FORMATS),
+    role: z.string(),
+    summary: z.string(),
+    slidesUrl: safeHttpUrl,
+    recordingUrl: safeHttpUrl,
+    eventUrl: safeHttpUrl,
+    coverImageUrl: safeHttpUrl,
+    tags: z.array(z.string()),
+    isFeatured: z.boolean(),
+    position: z.number().int().min(0),
+    links: z.array(z.object({
+      id: z.string().uuid(),
+      kind: z.enum(TALK_LINK_KINDS),
+      projectId: z.string().uuid().or(z.literal("")),
+      stackItemId: z.string().uuid().or(z.literal("")),
+      noteId: z.string().uuid().or(z.literal("")),
+      label: z.string(),
+      url: safeHttpUrl,
+      position: z.number().int().min(0),
+      isEnabled: z.boolean(),
+    }).strict()),
+  }).strict()).default([]),
   publishedAt: z.string(),
   isPublished: z.boolean(),
 });
@@ -1299,6 +1456,7 @@ export type ProfileStackCategoryDraftInput = z.infer<typeof stackCategoryDraftSc
 export type ProfileStackItemDraftInput = z.infer<typeof stackItemDraftSchema>;
 export type ProfilePathEntryDraftInput = z.infer<typeof pathEntryDraftSchema>;
 export type ProfileNoteDraftInput = z.infer<typeof noteDraftSchema>;
+export type ProfileTalkDraftInput = z.infer<typeof talkDraftSchema>;
 export type WorkspaceDraftInput = z.infer<typeof workspaceDraftSchema>;
 export type PublicLinkSnapshotInput = z.infer<typeof publicLinkSnapshotSchema>;
 export type PublicProfileSnapshotInput = z.infer<typeof publicProfileSnapshotSchema>;

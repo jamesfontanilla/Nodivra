@@ -11,6 +11,7 @@ import {
   sortStackItems,
   sortPathEntries,
   sortNotes,
+  sortTalks,
   sortSections,
 } from "@/lib/snapshot";
 import {
@@ -23,6 +24,7 @@ import {
   stackItemDraftSchema,
   pathEntryDraftSchema,
   noteDraftSchema,
+  talkDraftSchema,
   publicProfileSnapshotSchema,
   toFieldErrors,
   workspaceDraftSchema,
@@ -35,6 +37,7 @@ import {
   type ProfileStackItemDraftInput,
   type ProfilePathEntryDraftInput,
   type ProfileNoteDraftInput,
+  type ProfileTalkDraftInput,
   type ProfileSectionDraftInput,
   type WorkspaceDraftInput,
 } from "@/lib/validation";
@@ -62,6 +65,10 @@ import {
   type ProfileNoteDraft,
   type NoteLinkDraft,
   type NoteLinkKind,
+  type ProfileTalkDraft,
+  type TalkLinkDraft,
+  type TalkLinkKind,
+  type TalkFormat,
   type ProjectLinkDraft,
   type ProjectLinkKind,
   type ProjectStatus,
@@ -407,6 +414,55 @@ type NoteLinksRow = {
   updated_at: string;
 };
 
+type TalksRow = {
+  id: string;
+  profile_id: string;
+  title: string;
+  slug: string;
+  event_name: string;
+  event_date: string;
+  location_text: string;
+  format: TalkFormat;
+  role: string;
+  summary: string;
+  slides_url: string | null;
+  recording_url: string | null;
+  event_url: string | null;
+  cover_image_url: string | null;
+  is_published: boolean;
+  is_featured: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+type TalkTagsRow = {
+  id: string;
+  profile_id: string;
+  talk_id: string;
+  tag: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type TalkLinksRow = {
+  id: string;
+  profile_id: string;
+  talk_id: string;
+  kind: TalkLinkKind;
+  project_id: string | null;
+  stack_item_id: string | null;
+  note_id: string | null;
+  label: string;
+  url: string;
+  position: number;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 type PublicProfileSettingsRow = {
   id: string;
   profile_id: string;
@@ -430,6 +486,7 @@ type PublicProfileSettingsRow = {
   published_stack_items: unknown;
   published_path_entries: unknown;
   published_notes: unknown;
+  published_talks: unknown;
   is_published: boolean;
   published_at: string | null;
   updated_at: string;
@@ -533,6 +590,7 @@ export function createBlankWorkspace(
     stackItems: [],
     pathEntries: [],
     notes: [],
+    talks: [],
     published: null,
     auditLogs: [],
     mode,
@@ -902,6 +960,60 @@ function noteRowToDraft(
   return parsed.success ? parsed.data : null;
 }
 
+function talkTagRowToTag(row: TalkTagsRow) {
+  return { tag: row.tag, position: row.position };
+}
+
+function talkLinkRowToDraft(row: TalkLinksRow): TalkLinkDraft {
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    talkId: row.talk_id,
+    kind: row.kind,
+    projectId: row.project_id ?? "",
+    stackItemId: row.stack_item_id ?? "",
+    noteId: row.note_id ?? "",
+    label: row.label,
+    url: row.url,
+    position: row.position,
+    isEnabled: row.is_enabled,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function talkRowToDraft(
+  row: TalksRow,
+  tags: TalkTagsRow[],
+  links: TalkLinksRow[],
+): ProfileTalkDraft | null {
+  const candidate = {
+    id: row.id,
+    profileId: row.profile_id,
+    title: row.title,
+    slug: row.slug,
+    eventName: row.event_name,
+    eventDate: row.event_date,
+    locationText: row.location_text,
+    format: row.format,
+    role: row.role,
+    summary: row.summary,
+    slidesUrl: row.slides_url ?? "",
+    recordingUrl: row.recording_url ?? "",
+    eventUrl: row.event_url ?? "",
+    coverImageUrl: row.cover_image_url ?? "",
+    tags: [...tags].sort((left, right) => left.position - right.position).map(talkTagRowToTag).map((tag) => tag.tag),
+    isPublished: row.is_published,
+    isFeatured: row.is_featured,
+    position: row.position,
+    links: [...links].sort((left, right) => left.position - right.position).map(talkLinkRowToDraft),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+  const parsed = talkDraftSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
+}
+
 function normalizeProjectDrafts(
   profileId: string,
   projects: ProfileProjectDraftInput[],
@@ -1080,6 +1192,34 @@ function normalizeNotes(
   });
 }
 
+function normalizeTalks(
+  profileId: string,
+  talks: ProfileTalkDraftInput[],
+  existingTalks: ProfileTalkDraft[] = [],
+) {
+  const timestamp = nowIso();
+  const existingById = new Map(existingTalks.map((talk) => [talk.id, talk]));
+  return sortTalks(talks).map<ProfileTalkDraft>((talk, position) => {
+    const existing = existingById.get(talk.id);
+    return {
+      ...talk,
+      profileId,
+      position,
+      tags: talk.tags.map((tag) => tag.trim()).filter(Boolean),
+      links: talk.links.map((link, linkPosition) => ({
+        ...link,
+        profileId,
+        talkId: talk.id,
+        position: linkPosition,
+        createdAt: existing?.links.find((item) => item.id === link.id)?.createdAt ?? link.createdAt ?? timestamp,
+        updatedAt: timestamp,
+      })),
+      createdAt: existing?.createdAt ?? talk.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    };
+  });
+}
+
 function auditRowToEntry(row: AuditLogsRow): AuditLogEntry {
   return {
     id: row.id,
@@ -1131,6 +1271,7 @@ function publicRowToSnapshot(row: PublicProfileSettingsRow): PublicProfileSnapsh
     publishedStackItems: Array.isArray(row.published_stack_items) ? row.published_stack_items : [],
     publishedPathEntries: Array.isArray(row.published_path_entries) ? row.published_path_entries : [],
     publishedNotes: Array.isArray(row.published_notes) ? row.published_notes : [],
+    publishedTalks: Array.isArray(row.published_talks) ? row.published_talks : [],
     publishedAt: row.published_at ?? row.updated_at,
     isPublished: row.is_published,
   };
@@ -1669,6 +1810,72 @@ function mapNoteLinksToRows(profileId: string, notes: ProfileNoteDraftInput[]): 
   })));
 }
 
+function mapTalkInputsToRows(
+  profileId: string,
+  talks: ProfileTalkDraftInput[],
+  existingTalks: Array<{ id: string; created_at?: string; createdAt?: string }>,
+): TalksRow[] {
+  const timestamp = nowIso();
+  const existingById = new Map(existingTalks.map((talk) => [talk.id, talk]));
+  return sortTalks(talks).map((talk, position) => {
+    const existing = existingById.get(talk.id);
+    return {
+      id: talk.id,
+      profile_id: profileId,
+      title: talk.title.trim(),
+      slug: talk.slug.trim().toLowerCase(),
+      event_name: talk.eventName.trim(),
+      event_date: talk.eventDate,
+      location_text: talk.locationText.trim(),
+      format: talk.format,
+      role: talk.role.trim(),
+      summary: talk.summary.trim(),
+      slides_url: talk.slidesUrl.trim() || null,
+      recording_url: talk.recordingUrl.trim() || null,
+      event_url: talk.eventUrl.trim() || null,
+      cover_image_url: talk.coverImageUrl.trim() || null,
+      is_published: talk.isPublished,
+      is_featured: talk.isFeatured,
+      position,
+      created_at: existing?.created_at ?? existing?.createdAt ?? talk.createdAt ?? timestamp,
+      updated_at: timestamp,
+      deleted_at: null,
+    };
+  });
+}
+
+function mapTalkTagsToRows(profileId: string, talks: ProfileTalkDraftInput[]): TalkTagsRow[] {
+  const timestamp = nowIso();
+  return talks.flatMap((talk) => talk.tags.map((tag, position) => ({
+    id: randomUUID(),
+    profile_id: profileId,
+    talk_id: talk.id,
+    tag: tag.trim(),
+    position,
+    created_at: timestamp,
+    updated_at: timestamp,
+  })));
+}
+
+function mapTalkLinksToRows(profileId: string, talks: ProfileTalkDraftInput[]): TalkLinksRow[] {
+  const timestamp = nowIso();
+  return talks.flatMap((talk) => talk.links.map((link, position) => ({
+    id: link.id,
+    profile_id: profileId,
+    talk_id: talk.id,
+    kind: link.kind,
+    project_id: link.projectId || null,
+    stack_item_id: link.stackItemId || null,
+    note_id: link.noteId || null,
+    label: link.label.trim(),
+    url: link.url.trim(),
+    position,
+    is_enabled: link.isEnabled,
+    created_at: link.createdAt ?? timestamp,
+    updated_at: timestamp,
+  })));
+}
+
 function createAuditRow(
   profileId: string,
   actorId: string,
@@ -1707,7 +1914,7 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
   }
 
   const profileId = profileRow.id;
-  const [linksResult, sectionsResult, blocksResult, projectsResult, projectTechnologiesResult, projectLinksResult, projectTagsResult, repositoriesResult, repositoryTopicsResult, repositoryLanguagesResult, repositoryLinksResult, stackCategoriesResult, stackItemsResult, stackProjectsResult, stackLinksResult, pathEntriesResult, pathHighlightsResult, pathTechnologiesResult, pathLinksResult, notesResult, noteTagsResult, noteLinksResult, publicResult, auditResult] = await Promise.all([
+  const [linksResult, sectionsResult, blocksResult, projectsResult, projectTechnologiesResult, projectLinksResult, projectTagsResult, repositoriesResult, repositoryTopicsResult, repositoryLanguagesResult, repositoryLinksResult, stackCategoriesResult, stackItemsResult, stackProjectsResult, stackLinksResult, pathEntriesResult, pathHighlightsResult, pathTechnologiesResult, pathLinksResult, notesResult, noteTagsResult, noteLinksResult, talksResult, talkTagsResult, talkLinksResult, publicResult, auditResult] = await Promise.all([
     client
       .from("profile_links")
       .select("*")
@@ -1850,6 +2057,25 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       .order("position", { ascending: true })
       .limit(160),
     client
+      .from("talks")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null)
+      .order("position", { ascending: true })
+      .limit(40),
+    client
+      .from("talk_tags")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(320),
+    client
+      .from("talk_links")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(320),
+    client
       .from("public_profile_settings")
       .select("*")
       .eq("profile_id", profileId)
@@ -1932,6 +2158,16 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       noteLinks.filter((link) => link.note_id === row.id),
     ))
     .filter((note): note is ProfileNoteDraft => note !== null);
+  const talksRows = (talksResult.data ?? []) as TalksRow[];
+  const talkTags = (talkTagsResult.data ?? []) as TalkTagsRow[];
+  const talkLinks = (talkLinksResult.data ?? []) as TalkLinksRow[];
+  const talks = talksRows
+    .map((row) => talkRowToDraft(
+      row,
+      talkTags.filter((tag) => tag.talk_id === row.id),
+      talkLinks.filter((link) => link.talk_id === row.id),
+    ))
+    .filter((talk): talk is ProfileTalkDraft => talk !== null);
   const published = publicResult.data ? publicRowToSnapshot(publicResult.data) : null;
   const auditLogs = (auditResult.data ?? []).map(auditRowToEntry);
 
@@ -1946,6 +2182,7 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
     stackItems,
     pathEntries,
     notes,
+    talks,
     published,
     auditLogs,
     mode: "authenticated",
@@ -2035,6 +2272,13 @@ export async function getPublicNote(handle: string, slug: string) {
   return note ? { profile, note } : null;
 }
 
+export async function getPublicTalk(handle: string, slug: string) {
+  const profile = await getPublicProfile(handle);
+  if (!profile) return null;
+  const talk = profile.publishedTalks.find((item) => item.slug === slug.trim().toLowerCase());
+  return talk ? { profile, talk } : null;
+}
+
 async function persistDemoWorkspace(
   input: WorkspaceDraftInput,
   publish: boolean,
@@ -2104,6 +2348,11 @@ async function persistDemoWorkspace(
     input.notes,
     store.notes,
   );
+  const nextTalks = normalizeTalks(
+    nextProfile.id,
+    input.talks,
+    store.talks,
+  );
   store.profile = nextProfile;
   store.links = nextLinks.map(linkRowToDraft);
   store.sections = nextSections;
@@ -2114,6 +2363,7 @@ async function persistDemoWorkspace(
   store.stackItems = nextStackItems;
   store.pathEntries = nextPathEntries;
   store.notes = nextNotes;
+  store.talks = nextTalks;
   store.published = publish
     ? buildPublicProfileSnapshot(
         nextProfile,
@@ -2127,6 +2377,7 @@ async function persistDemoWorkspace(
         store.stackItems,
         store.pathEntries,
         store.notes,
+        store.talks,
       )
     : store.published;
   store.auditLogs = [
@@ -2135,8 +2386,8 @@ async function persistDemoWorkspace(
       nextProfile.ownerId,
       publish ? "profile_published" : "profile_saved",
       publish
-        ? `Published ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, ${store.pathEntries.length} Path entries, and ${store.notes.length} Notes`
-        : `Saved ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, ${store.pathEntries.length} Path entries, and ${store.notes.length} Notes`,
+        ? `Published ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, ${store.pathEntries.length} Path entries, ${store.notes.length} Notes, and ${store.talks.length} Talks`
+        : `Saved ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, ${store.pathEntries.length} Path entries, ${store.notes.length} Notes, and ${store.talks.length} Talks`,
       {
         published: publish,
         linkCount: store.links.length,
@@ -2148,6 +2399,7 @@ async function persistDemoWorkspace(
         stackItemCount: store.stackItems.length,
         pathEntryCount: store.pathEntries.length,
         noteCount: store.notes.length,
+        talkCount: store.talks.length,
       },
     ),
     ...store.auditLogs,
@@ -2279,7 +2531,7 @@ async function persistSupabaseWorkspace(
     }
   }
 
-  const [{ data: existingSectionsMany }, { data: existingBlocksMany }, { data: existingProjectsMany }, { data: existingProjectLinksMany }, { data: existingRepositoriesMany }, { data: existingRepositoryLinksMany }, { data: existingStackCategoriesMany }, { data: existingStackItemsMany }, { data: existingPathEntriesMany }, { data: existingNotesMany }] = await Promise.all([
+  const [{ data: existingSectionsMany }, { data: existingBlocksMany }, { data: existingProjectsMany }, { data: existingProjectLinksMany }, { data: existingRepositoriesMany }, { data: existingRepositoryLinksMany }, { data: existingStackCategoriesMany }, { data: existingStackItemsMany }, { data: existingPathEntriesMany }, { data: existingNotesMany }, { data: existingTalksMany }] = await Promise.all([
     client
       .from("profile_sections")
       .select("*")
@@ -2325,6 +2577,11 @@ async function persistSupabaseWorkspace(
       .is("deleted_at", null),
     client
       .from("notes")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null),
+    client
+      .from("talks")
       .select("*")
       .eq("profile_id", profileId)
       .is("deleted_at", null),
@@ -2668,6 +2925,38 @@ async function persistSupabaseWorkspace(
     if (revisionError) return { ok: false, message: revisionError.message, fieldErrors: {} };
   }
 
+  const nextTalks = mapTalkInputsToRows(
+    profileId,
+    input.talks,
+    (existingTalksMany ?? []) as TalksRow[],
+  );
+  const nextTalkDrafts = normalizeTalks(profileId, input.talks);
+  if (nextTalks.length > 0) {
+    const { error: talkUpsertError } = await client.from("talks").upsert(nextTalks);
+    if (talkUpsertError) return { ok: false, message: talkUpsertError.message, fieldErrors: {} };
+  }
+  for (const table of ["talk_tags", "talk_links"] as const) {
+    const { error: childDeleteError } = await client.from(table).delete().eq("profile_id", profileId);
+    if (childDeleteError) return { ok: false, message: childDeleteError.message, fieldErrors: {} };
+  }
+  const talkTags = mapTalkTagsToRows(profileId, input.talks);
+  const talkLinks = mapTalkLinksToRows(profileId, input.talks);
+  if (talkTags.length > 0) {
+    const { error } = await client.from("talk_tags").insert(talkTags);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  if (talkLinks.length > 0) {
+    const { error } = await client.from("talk_links").insert(talkLinks);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  const staleTalkIds = (existingTalksMany ?? [])
+    .map((talk) => talk.id)
+    .filter((id) => !nextTalks.some((talk) => talk.id === id));
+  if (staleTalkIds.length > 0) {
+    const { error } = await client.from("talks").delete().eq("profile_id", profileId).in("id", staleTalkIds);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+
   if (publish) {
     const published = buildPublicProfileSnapshot(
       profileRowToDraft(profileRow),
@@ -2683,6 +2972,7 @@ async function persistSupabaseWorkspace(
       nextStackItemDrafts,
       nextPathEntryDrafts,
       nextNoteDrafts,
+      nextTalkDrafts,
     );
     const publicRow = {
       profile_id: profileId,
@@ -2706,6 +2996,7 @@ async function persistSupabaseWorkspace(
       published_stack_items: published.publishedStackItems,
       published_path_entries: published.publishedPathEntries,
       published_notes: published.publishedNotes,
+      published_talks: published.publishedTalks,
       is_published: true,
       published_at: nowIso(),
       updated_at: nowIso(),
@@ -2729,8 +3020,8 @@ async function persistSupabaseWorkspace(
     viewer.userId,
     publish ? "profile_published" : "profile_saved",
     publish
-      ? `Published ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, ${nextPathEntryDrafts.length} Path entries, and ${nextNoteDrafts.length} Notes`
-      : `Saved ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, ${nextPathEntryDrafts.length} Path entries, and ${nextNoteDrafts.length} Notes`,
+      ? `Published ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, ${nextPathEntryDrafts.length} Path entries, ${nextNoteDrafts.length} Notes, and ${nextTalkDrafts.length} Talks`
+      : `Saved ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, ${nextPathEntryDrafts.length} Path entries, ${nextNoteDrafts.length} Notes, and ${nextTalkDrafts.length} Talks`,
     {
       published: publish,
       linkCount: nextLinks.length,
@@ -2742,6 +3033,7 @@ async function persistSupabaseWorkspace(
       stackItemCount: nextStackItemDrafts.length,
       pathEntryCount: nextPathEntryDrafts.length,
       noteCount: nextNoteDrafts.length,
+      talkCount: nextTalkDrafts.length,
       handle: profileRow.handle,
     },
   );

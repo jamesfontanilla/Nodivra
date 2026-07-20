@@ -1,6 +1,6 @@
 # Nodivra
 
-Fresh build of Nodivra Pages, Blocks, Projects, Path, and Notes: a polished public profile and safe, flexible page builder for developers.
+Fresh build of Nodivra Pages, Blocks, Projects, Path, Notes, and Talks: a polished public profile and safe, flexible page builder for developers.
 
 ## Stack
 
@@ -14,7 +14,7 @@ Fresh build of Nodivra Pages, Blocks, Projects, Path, and Notes: a polished publ
 1. Copy `.env.example` to `.env.local`.
 1. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 1. Set `NEXT_PUBLIC_SITE_URL` to your local or deployed URL.
-1. Run `database/migrations/001_nodivra_pages.sql` and `database/migrations/002_nodivra_blocks.sql`, then apply `supabase/migrations/20260719000000_nodivra_projects.sql`, `supabase/migrations/20260719010000_nodivra_repos.sql`, `supabase/migrations/20260719020000_nodivra_stack.sql`, `supabase/migrations/20260719030000_nodivra_path.sql`, and `supabase/migrations/20260720000000_nodivra_notes.sql`.
+1. Run `database/migrations/001_nodivra_pages.sql` and `database/migrations/002_nodivra_blocks.sql`, then apply `supabase/migrations/20260719000000_nodivra_projects.sql`, `supabase/migrations/20260719010000_nodivra_repos.sql`, `supabase/migrations/20260719020000_nodivra_stack.sql`, `supabase/migrations/20260719030000_nodivra_path.sql`, `supabase/migrations/20260720000000_nodivra_notes.sql`, and `supabase/migrations/20260720010000_nodivra_talks.sql`.
 1. Optionally seed the demo workspace through the app's demo mode.
 
 ## Scripts
@@ -46,6 +46,9 @@ Fresh build of Nodivra Pages, Blocks, Projects, Path, and Notes: a polished publ
 - The Notes archive at `/u/[handle]/notes` supports bounded search, tag filters, and eight-item pagination. Published articles use server-rendered detail pages at `/u/[handle]/notes/[slug]` with related-note links and canonical/Open Graph metadata.
 - Notes are bounded to 40 per profile, eight tags and four links per note, with no more than three featured notes. Notes reject raw HTML, scripts, iframes, unsafe schemes, email newsletters, AI writing, external publishing integrations, and runtime analytics.
 - Note Highlight blocks resolve only to published Notes and can be placed alongside other curated Blocks.
+- Talks are manually curated appearances for conferences, workshops, podcasts, panels, meetups, and livestreams. Each entry has a required event date, format, role, summary, tags, optional cover, and safe outbound links for recordings, slides, and event pages.
+- The Talks archive at `/u/[handle]/talks` supports bounded text search, format/year filters, timeline grouping, and eight-item pagination. Talk detail pages connect only to published Projects, Stack items, and Notes.
+- Talks are bounded to 40 entries, eight tags and eight context links per talk, with no more than three featured talks. Nodivra never hosts or proxies video, audio, slides, or event media and does not use external media APIs.
 - Public blocks are rendered from bounded published snapshots. Unsafe URLs, arbitrary HTML, JavaScript, and iframe embeds are rejected.
 - `docs/` and `.agents/` are kept in the repo as project references.
 - Generated artifacts like `node_modules/` and `.next/` are ignored.

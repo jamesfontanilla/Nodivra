@@ -495,6 +495,12 @@ export interface PublicPathEntrySnapshot {
 export const NOTE_LINK_KINDS = ["project", "website", "repository", "resource"] as const;
 export type NoteLinkKind = (typeof NOTE_LINK_KINDS)[number];
 
+export const TALK_FORMATS = ["conference", "workshop", "podcast", "panel", "meetup", "livestream"] as const;
+export type TalkFormat = (typeof TALK_FORMATS)[number];
+
+export const TALK_LINK_KINDS = ["project", "stack", "note", "website", "resource"] as const;
+export type TalkLinkKind = (typeof TALK_LINK_KINDS)[number];
+
 export interface NoteLinkDraft {
   id: string;
   profileId: string;
@@ -553,6 +559,78 @@ export interface PublicNoteSnapshot {
   isFeatured: boolean;
   position: number;
   links: PublicNoteLinkSnapshot[];
+}
+
+export interface TalkLinkDraft {
+  id: string;
+  profileId: string;
+  talkId: string;
+  kind: TalkLinkKind;
+  projectId: string;
+  stackItemId: string;
+  noteId: string;
+  label: string;
+  url: string;
+  position: number;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfileTalkDraft {
+  id: string;
+  profileId: string;
+  title: string;
+  slug: string;
+  eventName: string;
+  eventDate: string;
+  locationText: string;
+  format: TalkFormat;
+  role: string;
+  summary: string;
+  slidesUrl: string;
+  recordingUrl: string;
+  eventUrl: string;
+  coverImageUrl: string;
+  tags: string[];
+  isPublished: boolean;
+  isFeatured: boolean;
+  position: number;
+  links: TalkLinkDraft[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublicTalkLinkSnapshot {
+  id: string;
+  kind: TalkLinkKind;
+  projectId: string;
+  stackItemId: string;
+  noteId: string;
+  label: string;
+  url: string;
+  position: number;
+  isEnabled: boolean;
+}
+
+export interface PublicTalkSnapshot {
+  id: string;
+  title: string;
+  slug: string;
+  eventName: string;
+  eventDate: string;
+  locationText: string;
+  format: TalkFormat;
+  role: string;
+  summary: string;
+  slidesUrl: string;
+  recordingUrl: string;
+  eventUrl: string;
+  coverImageUrl: string;
+  tags: string[];
+  isFeatured: boolean;
+  position: number;
+  links: PublicTalkLinkSnapshot[];
 }
 
 export interface PublicStackCategorySnapshot {
@@ -703,6 +781,7 @@ export interface PublicProfileSnapshot {
   publishedStackItems: PublicStackItemSnapshot[];
   publishedPathEntries: PublicPathEntrySnapshot[];
   publishedNotes: PublicNoteSnapshot[];
+  publishedTalks: PublicTalkSnapshot[];
   publishedAt: string;
   isPublished: boolean;
 }
@@ -730,6 +809,7 @@ export interface WorkspaceSnapshot {
   stackItems: ProfileStackItemDraft[];
   pathEntries: ProfilePathEntryDraft[];
   notes: ProfileNoteDraft[];
+  talks: ProfileTalkDraft[];
   published: PublicProfileSnapshot | null;
   auditLogs: AuditLogEntry[];
   mode: "demo" | "authenticated" | "anonymous";

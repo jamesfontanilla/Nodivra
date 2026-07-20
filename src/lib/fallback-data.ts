@@ -12,6 +12,8 @@ import {
   type ProfilePathEntryDraft,
   type ProfileNoteDraft,
   type NoteLinkDraft,
+  type ProfileTalkDraft,
+  type TalkLinkDraft,
   type PathHighlightDraft,
   type PathTechnologyDraft,
   type PathLinkDraft,
@@ -842,6 +844,99 @@ function createDemoNotes(profileId: string): ProfileNoteDraft[] {
   ];
 }
 
+function createDemoTalks(profileId: string): ProfileTalkDraft[] {
+  const timestamp = now();
+  const link = (id: string, talkId: string, kind: TalkLinkDraft["kind"], label: string, projectId: string, stackItemId: string, noteId: string, url: string, position: number): TalkLinkDraft => ({
+    id,
+    profileId,
+    talkId,
+    kind,
+    projectId,
+    stackItemId,
+    noteId,
+    label,
+    url,
+    position,
+    isEnabled: true,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  return [
+    {
+      id: "cc0f8f13-0c2b-4b0e-9001-000000000001",
+      profileId,
+      title: "Designing for the next useful question",
+      slug: "designing-for-the-next-useful-question",
+      eventName: "Frontend Futures 2026",
+      eventDate: "2026-06-18",
+      locationText: "Manila / online",
+      format: "conference",
+      role: "Speaker",
+      summary: "A practical talk about turning a developer profile into a calm, searchable surface for proof of work.",
+      slidesUrl: "https://example.com/talks/useful-question/slides",
+      recordingUrl: "https://example.com/talks/useful-question/recording",
+      eventUrl: "https://example.com/events/frontend-futures-2026",
+      coverImageUrl: "",
+      tags: ["design systems", "developer experience", "portfolio"],
+      isPublished: true,
+      isFeatured: true,
+      position: 0,
+      links: [
+        link("dc0f8f13-0c2b-4b0e-9001-000000000001", "cc0f8f13-0c2b-4b0e-9001-000000000001", "project", "Signal case study", "4c0f8f13-0c2b-4b0e-9001-000000000001", "", "", "", 0),
+        link("dc0f8f13-0c2b-4b0e-9001-000000000002", "cc0f8f13-0c2b-4b0e-9001-000000000001", "note", "Read the field note", "", "", "ac0f8f13-0c2b-4b0e-9001-000000000001", "", 1),
+      ],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "cc0f8f13-0c2b-4b0e-9001-000000000002",
+      profileId,
+      title: "The craft behind the public page",
+      slug: "the-craft-behind-the-public-page",
+      eventName: "The Product Surface Podcast",
+      eventDate: "2026-04-09",
+      locationText: "Remote recording",
+      format: "podcast",
+      role: "Guest",
+      summary: "A conversation about designing small systems that give creative work enough structure to travel well.",
+      slidesUrl: "",
+      recordingUrl: "https://example.com/podcast/public-page",
+      eventUrl: "https://example.com/podcast",
+      coverImageUrl: "",
+      tags: ["product", "systems", "writing"],
+      isPublished: true,
+      isFeatured: false,
+      position: 1,
+      links: [link("dc0f8f13-0c2b-4b0e-9001-000000000003", "cc0f8f13-0c2b-4b0e-9001-000000000002", "website", "Podcast episode", "", "", "", "https://example.com/podcast/public-page", 0)],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "cc0f8f13-0c2b-4b0e-9001-000000000003",
+      profileId,
+      title: "A workshop on small systems",
+      slug: "a-workshop-on-small-systems",
+      eventName: "Private workshop draft",
+      eventDate: "2026-09-14",
+      locationText: "To be announced",
+      format: "workshop",
+      role: "Facilitator",
+      summary: "A private outline for a hands-on session about giving content a durable home without making the system feel heavy.",
+      slidesUrl: "",
+      recordingUrl: "",
+      eventUrl: "",
+      coverImageUrl: "",
+      tags: ["draft", "workshop"],
+      isPublished: false,
+      isFeatured: false,
+      position: 2,
+      links: [],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ];
+}
+
 function createAuditLogs(profileId: string): AuditLogEntry[] {
   const timestamp = now();
   return [
@@ -872,6 +967,7 @@ function createDemoStore(): WorkspaceSnapshot {
   const stackItems = createDemoStackItems(profile.id);
   const pathEntries = createDemoPathEntries(profile.id);
   const notes = createDemoNotes(profile.id);
+  const talks = createDemoTalks(profile.id);
   return {
     profile,
     links,
@@ -883,6 +979,7 @@ function createDemoStore(): WorkspaceSnapshot {
     stackItems,
     pathEntries,
     notes,
+    talks,
     published: buildPublicProfileSnapshot(
       profile,
       links,
@@ -895,6 +992,7 @@ function createDemoStore(): WorkspaceSnapshot {
       stackItems,
       pathEntries,
       notes,
+      talks,
     ),
     auditLogs: createAuditLogs(profile.id),
     mode: "demo",
@@ -936,6 +1034,7 @@ export function getDemoWorkspaceSnapshot(): WorkspaceSnapshot {
     stackItems: structuredClone(store.stackItems),
     pathEntries: structuredClone(store.pathEntries),
     notes: structuredClone(store.notes),
+    talks: structuredClone(store.talks),
     published: structuredClone(store.published),
     auditLogs: structuredClone(store.auditLogs),
     mode: "demo",
