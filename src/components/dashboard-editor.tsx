@@ -10,6 +10,7 @@ import { PublicStack } from "@/components/stack-detail";
 import { PublicPath } from "@/components/path-detail";
 import { PublicNotes } from "@/components/note-detail";
 import { PublicTalks } from "@/components/talk-detail";
+import { PublicSnippets } from "@/components/snip-detail";
 import { BlocksEditor } from "@/components/blocks-editor";
 import { ProjectsEditor } from "@/components/projects-editor";
 import { RepositoriesEditor } from "@/components/repositories-editor";
@@ -17,6 +18,7 @@ import { StackEditor } from "@/components/stack-editor";
 import { PathEditor } from "@/components/path-editor";
 import { NotesEditor } from "@/components/notes-editor";
 import { TalksEditor } from "@/components/talks-editor";
+import { SnipsEditor } from "@/components/snips-editor";
 import {
   ArrowUpRightIcon,
   CheckIcon,
@@ -40,6 +42,7 @@ import type {
   ProfilePathEntryDraft,
   ProfileNoteDraft,
   ProfileTalkDraft,
+  ProfileSnipDraft,
   ProfileSectionDraft,
   WorkspaceSnapshot,
 } from "@/types/nodivra";
@@ -63,7 +66,7 @@ type Notice = {
   message: string;
 } | null;
 
-type EditorTab = "profile" | "path" | "notes" | "talks" | "blocks" | "projects" | "repos" | "stack";
+type EditorTab = "profile" | "path" | "notes" | "talks" | "snips" | "blocks" | "projects" | "repos" | "stack";
 type PreviewDevice = "desktop" | "mobile";
 
 function createDraftLink(profileId: string, position: number): ProfileLinkDraft {
@@ -161,6 +164,7 @@ export function DashboardEditor({
     workspace.pathEntries,
     workspace.notes,
     workspace.talks,
+    workspace.snippets,
   );
   const status = statusCopy(workspace, isDirty);
   const publicUrl = workspace.profile.handle
@@ -317,6 +321,19 @@ export function DashboardEditor({
         updatedAt: new Date().toISOString(),
       },
       talks,
+    }));
+  }
+
+  function patchSnippets(snippets: ProfileSnipDraft[]) {
+    setIsDirty(true);
+    setWorkspace((current) => ({
+      ...current,
+      profile: {
+        ...current.profile,
+        isPublished: false,
+        updatedAt: new Date().toISOString(),
+      },
+      snippets,
     }));
   }
 
@@ -643,6 +660,30 @@ export function DashboardEditor({
       createdAt: now,
       updatedAt: now,
     }));
+    const nextSnippets = published.publishedSnippets.map((snip) => ({
+      id: snip.id,
+      profileId: workspace.profile.id,
+      title: snip.title,
+      slug: snip.slug,
+      description: snip.description,
+      code: snip.code,
+      language: snip.language,
+      visibility: "public" as const,
+      tags: snip.tags,
+      sourceUrl: snip.sourceUrl,
+      isPublished: true,
+      isFeatured: snip.isFeatured,
+      position: snip.position,
+      links: snip.links.map((link) => ({
+        ...link,
+        profileId: workspace.profile.id,
+        snipId: snip.id,
+        createdAt: now,
+        updatedAt: now,
+      })),
+      createdAt: now,
+      updatedAt: now,
+    }));
 
     setWorkspace((current) => ({
       ...current,
@@ -672,6 +713,7 @@ export function DashboardEditor({
       pathEntries: nextPathEntries,
       notes: nextNotes,
       talks: nextTalks,
+      snippets: nextSnippets,
     }));
     setIsDirty(false);
     setNotice({ tone: "success", message: "Draft restored to the latest published snapshot." });
@@ -851,6 +893,19 @@ export function DashboardEditor({
           >
             <span className="block font-medium">Repos</span>
             <span className={cn("mt-1 block text-xs", activeTab === "repos" ? "text-ink-700" : "text-sand-300/60")}>Manual code archive</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "snips"}
+            onClick={() => setActiveTab("snips")}
+            className={cn(
+              "flex-1 rounded-full px-4 py-3 text-left text-sm transition-[transform,background-color,color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.99] sm:flex-none sm:min-w-[180px]",
+              activeTab === "snips" ? "bg-sand-100 text-ink-950" : "text-sand-200/70 hover:bg-white/10 hover:text-sand-50",
+            )}
+          >
+            <span className="block font-medium">Snips</span>
+            <span className={cn("mt-1 block text-xs", activeTab === "snips" ? "text-ink-700" : "text-sand-300/60")}>Code references</span>
           </button>
           <button
             type="button"
@@ -1308,6 +1363,14 @@ export function DashboardEditor({
               onChange={patchTalks}
               fieldErrors={fieldErrors}
             />
+          ) : activeTab === "snips" ? (
+            <SnipsEditor
+              profileId={workspace.profile.id}
+              snippets={workspace.snippets}
+              projects={workspace.projects}
+              onChange={patchSnippets}
+              fieldErrors={fieldErrors}
+            />
           ) : activeTab === "blocks" ? (
             <BlocksEditor
               profileId={workspace.profile.id}
@@ -1397,6 +1460,11 @@ export function DashboardEditor({
                   notes={livePreview.publishedNotes}
                   profileHandle={livePreview.handle}
                 />
+                <PublicSnippets
+                  snippets={livePreview.publishedSnippets}
+                  projects={livePreview.publishedProjects}
+                  profileHandle={livePreview.handle}
+                />
                 <PublicBlocks
                   sections={livePreview.publishedSections}
                   blocks={livePreview.publishedBlocks}
@@ -1452,7 +1520,7 @@ export function DashboardEditor({
                         Published links
                       </p>
                       <p className="mt-2 text-lg font-medium text-sand-50">
-                        {workspace.published.publishedLinks.length} links · {workspace.published.publishedPathEntries.length} Path entries · {workspace.published.publishedNotes.length} notes · {workspace.published.publishedTalks.length} talks · {workspace.published.publishedProjects.length} projects · {workspace.published.publishedRepositories.length} repos · {workspace.published.publishedStackItems.length} stack items
+                        {workspace.published.publishedLinks.length} links · {workspace.published.publishedPathEntries.length} Path entries · {workspace.published.publishedNotes.length} notes · {workspace.published.publishedTalks.length} talks · {workspace.published.publishedSnippets.length} Snips · {workspace.published.publishedProjects.length} projects · {workspace.published.publishedRepositories.length} repos · {workspace.published.publishedStackItems.length} stack items
                       </p>
                     </div>
                     <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
@@ -1510,7 +1578,7 @@ export function DashboardEditor({
       <div className="fixed inset-x-4 bottom-4 z-30 flex items-center gap-3 rounded-[1.5rem] bg-ink-950/95 p-2 shadow-halo ring-1 ring-white/15 backdrop-blur-xl lg:hidden">
         <div className="min-w-0 flex-1 px-3">
           <p className="truncate text-xs font-medium text-sand-50">{isDirty ? "Unsaved changes" : "All changes saved"}</p>
-          <p className="truncate text-[10px] uppercase tracking-[0.16em] text-sand-300/60">{activeTab === "blocks" ? "Blocks editor" : activeTab === "path" ? "Path editor" : activeTab === "notes" ? "Notes editor" : activeTab === "talks" ? "Talks editor" : activeTab === "projects" ? "Projects editor" : activeTab === "repos" ? "Repos editor" : activeTab === "stack" ? "Stack editor" : "Profile editor"}</p>
+          <p className="truncate text-[10px] uppercase tracking-[0.16em] text-sand-300/60">{activeTab === "blocks" ? "Blocks editor" : activeTab === "path" ? "Path editor" : activeTab === "notes" ? "Notes editor" : activeTab === "talks" ? "Talks editor" : activeTab === "snips" ? "Snips editor" : activeTab === "projects" ? "Projects editor" : activeTab === "repos" ? "Repos editor" : activeTab === "stack" ? "Stack editor" : "Profile editor"}</p>
         </div>
         <Button type="button" variant="secondary" disabled={!canSave} onClick={() => void saveWorkspace("save")}>
           {savingAction === "save" ? "Saving" : "Save"}

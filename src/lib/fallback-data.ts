@@ -14,6 +14,8 @@ import {
   type NoteLinkDraft,
   type ProfileTalkDraft,
   type TalkLinkDraft,
+  type ProfileSnipDraft,
+  type SnipLinkDraft,
   type PathHighlightDraft,
   type PathTechnologyDraft,
   type PathLinkDraft,
@@ -937,6 +939,88 @@ function createDemoTalks(profileId: string): ProfileTalkDraft[] {
   ];
 }
 
+function createDemoSnips(profileId: string): ProfileSnipDraft[] {
+  const timestamp = now();
+  const link = (id: string, snipId: string, kind: SnipLinkDraft["kind"], label: string, projectId: string, url: string, position: number): SnipLinkDraft => ({
+    id,
+    profileId,
+    snipId,
+    kind,
+    projectId,
+    label,
+    url,
+    position,
+    isEnabled: true,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  return [
+    {
+      id: "ee0f8f13-0c2b-4b0e-9001-000000000001",
+      profileId,
+      title: "A small slug helper",
+      slug: "a-small-slug-helper",
+      description: "A deliberately small utility for turning a human label into a stable route segment.",
+      code: `export function slugify(value: string) {
+  return value.trim().toLowerCase().replace(/\\s+/g, "-");
+}`,
+      language: "typescript",
+      visibility: "public",
+      tags: ["typescript", "utilities", "web"],
+      sourceUrl: "https://example.com/snips/slug-helper",
+      isPublished: true,
+      isFeatured: true,
+      position: 0,
+      links: [link("ef0f8f13-0c2b-4b0e-9001-000000000001", "ee0f8f13-0c2b-4b0e-9001-000000000001", "project", "Signal case study", "4c0f8f13-0c2b-4b0e-9001-000000000001", "", 0)],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "ee0f8f13-0c2b-4b0e-9001-000000000002",
+      profileId,
+      title: "A readable query boundary",
+      slug: "a-readable-query-boundary",
+      description: "A compact SQL shape for keeping public archive reads bounded and explicit.",
+      code: `select id, title, slug
+from public.snippets
+where profile_id = $1
+  and is_published = true
+  and deleted_at is null
+order by position asc
+limit 8;`,
+      language: "sql",
+      visibility: "public",
+      tags: ["sql", "supabase", "performance"],
+      sourceUrl: "",
+      isPublished: true,
+      isFeatured: false,
+      position: 1,
+      links: [link("ef0f8f13-0c2b-4b0e-9001-000000000002", "ee0f8f13-0c2b-4b0e-9001-000000000002", "resource", "Supabase docs", "", "https://supabase.com/docs", 0)],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "ee0f8f13-0c2b-4b0e-9001-000000000003",
+      profileId,
+      title: "A private parsing experiment",
+      slug: "a-private-parsing-experiment",
+      description: "A draft reference for a future parser experiment.",
+      code: `def parse_label(value):
+    return value.strip().lower()`,
+      language: "python",
+      visibility: "private",
+      tags: ["python", "draft"],
+      sourceUrl: "",
+      isPublished: false,
+      isFeatured: false,
+      position: 2,
+      links: [],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ];
+}
+
 function createAuditLogs(profileId: string): AuditLogEntry[] {
   const timestamp = now();
   return [
@@ -968,6 +1052,7 @@ function createDemoStore(): WorkspaceSnapshot {
   const pathEntries = createDemoPathEntries(profile.id);
   const notes = createDemoNotes(profile.id);
   const talks = createDemoTalks(profile.id);
+  const snippets = createDemoSnips(profile.id);
   return {
     profile,
     links,
@@ -980,6 +1065,7 @@ function createDemoStore(): WorkspaceSnapshot {
     pathEntries,
     notes,
     talks,
+    snippets,
     published: buildPublicProfileSnapshot(
       profile,
       links,
@@ -993,6 +1079,7 @@ function createDemoStore(): WorkspaceSnapshot {
       pathEntries,
       notes,
       talks,
+      snippets,
     ),
     auditLogs: createAuditLogs(profile.id),
     mode: "demo",
@@ -1035,6 +1122,7 @@ export function getDemoWorkspaceSnapshot(): WorkspaceSnapshot {
     pathEntries: structuredClone(store.pathEntries),
     notes: structuredClone(store.notes),
     talks: structuredClone(store.talks),
+    snippets: structuredClone(store.snippets),
     published: structuredClone(store.published),
     auditLogs: structuredClone(store.auditLogs),
     mode: "demo",

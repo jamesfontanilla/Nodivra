@@ -3,7 +3,7 @@ import {
   buildPublicProfileSnapshot,
   splitVisibleLinks,
 } from "@/lib/snapshot";
-import type { ProfileNoteDraft, ProfilePathEntryDraft, ProfileProjectDraft, ProfileRepositoryDraft, ProfileStackCategoryDraft, ProfileStackItemDraft, ProfileTalkDraft } from "@/types/nodivra";
+import type { ProfileNoteDraft, ProfilePathEntryDraft, ProfileProjectDraft, ProfileRepositoryDraft, ProfileSnipDraft, ProfileStackCategoryDraft, ProfileStackItemDraft, ProfileTalkDraft } from "@/types/nodivra";
 
 describe("public snapshot helpers", () => {
   it("sorts and filters links before publishing", () => {
@@ -641,5 +641,129 @@ describe("public snapshot helpers", () => {
     expect(snapshot.publishedTalks).toHaveLength(1);
     expect(snapshot.publishedTalks[0]?.slug).toBe("the-second-read");
     expect(snapshot.publishedTalks[0]?.links.map((link) => link.kind)).toEqual(["website"]);
+  });
+
+  it("publishes only public Snips and keeps code as inert text", () => {
+    const profile = {
+      id: "11111111-1111-1111-1111-111111111111",
+      ownerId: "11111111-1111-1111-1111-111111111111",
+      handle: "jamie-fontanilla",
+      displayName: "Jamie Fontanilla",
+      headline: "",
+      bio: "",
+      locationText: "",
+      timezone: "UTC",
+      avatarInitials: "JF",
+      avatarUrl: "",
+      primaryCtaLabel: "",
+      primaryCtaUrl: "",
+      availabilityStatus: "available" as const,
+      isPublished: false,
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+    const publicProject: ProfileProjectDraft = {
+      id: "22222222-2222-4222-8222-222222222222",
+      profileId: profile.id,
+      slug: "signal",
+      projectName: "Signal",
+      shortSummary: "A public project.",
+      caseStudyMarkdown: "## Signal",
+      role: "Engineer",
+      technologies: ["TypeScript"],
+      projectType: "product",
+      startDate: "2026-01-01",
+      endDate: "",
+      status: "shipped",
+      coverImageUrl: "",
+      lessonsLearned: "Keep references explicit.",
+      tags: ["systems"],
+      isFeatured: false,
+      isPublished: true,
+      position: 0,
+      links: [],
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+    const snipLink = {
+      id: "44444444-4444-4444-8444-444444444444",
+      profileId: profile.id,
+      snipId: "33333333-3333-4333-8333-333333333333",
+      kind: "project" as const,
+      projectId: "99999999-9999-4999-8999-999999999999",
+      label: "Private project",
+      url: "",
+      position: 0,
+      isEnabled: true,
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+    const resourceLink = {
+      id: "55555555-5555-4555-8555-555555555555",
+      profileId: profile.id,
+      snipId: "33333333-3333-4333-8333-333333333333",
+      kind: "resource" as const,
+      projectId: "",
+      label: "Reference docs",
+      url: "https://example.com/docs",
+      position: 1,
+      isEnabled: true,
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+    const publicSnip: ProfileSnipDraft = {
+      id: "33333333-3333-4333-8333-333333333333",
+      profileId: profile.id,
+      title: "Escaped reference",
+      slug: "escaped-reference",
+      description: "A code sample that remains text on the public page.",
+      code: "<script>never-run()</script>",
+      language: "html",
+      visibility: "public",
+      tags: ["safety"],
+      sourceUrl: "",
+      isPublished: true,
+      isFeatured: true,
+      position: 0,
+      links: [snipLink, resourceLink],
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+    const privateSnip: ProfileSnipDraft = {
+      ...publicSnip,
+      id: "66666666-6666-4666-8666-666666666666",
+      slug: "private-reference",
+      visibility: "private",
+      isFeatured: false,
+      position: 1,
+    };
+    const draftSnip: ProfileSnipDraft = {
+      ...publicSnip,
+      id: "77777777-7777-4777-8777-777777777777",
+      slug: "draft-reference",
+      isPublished: false,
+      isFeatured: false,
+      position: 2,
+    };
+
+    const snapshot = buildPublicProfileSnapshot(
+      profile,
+      [],
+      profile.updatedAt,
+      [],
+      [],
+      [publicProject],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [publicSnip, privateSnip, draftSnip],
+    );
+
+    expect(snapshot.publishedSnippets).toHaveLength(1);
+    expect(snapshot.publishedSnippets[0]?.code).toBe("<script>never-run()</script>");
+    expect(snapshot.publishedSnippets[0]?.links.map((link) => link.kind)).toEqual(["resource"]);
   });
 });

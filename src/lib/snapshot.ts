@@ -9,6 +9,7 @@ import {
   type ProfilePathEntryDraft,
   type ProfileNoteDraft,
   type ProfileTalkDraft,
+  type ProfileSnipDraft,
   type ProfileSectionDraft,
   type NoteHighlightConfiguration,
   type PublicBlockSnapshot,
@@ -20,6 +21,7 @@ import {
   type PublicPathEntrySnapshot,
   type PublicNoteSnapshot,
   type PublicTalkSnapshot,
+  type PublicSnipSnapshot,
   type PublicProfileSnapshot,
   type PublicSectionSnapshot,
 } from "@/types/nodivra";
@@ -73,6 +75,12 @@ type SortablePathEntry = {
 };
 
 type SortableNote = {
+  id: string;
+  position: number;
+  createdAt?: string;
+};
+
+type SortableSnip = {
   id: string;
   position: number;
   createdAt?: string;
@@ -184,6 +192,14 @@ export function sortTalks<T extends SortableNote>(talks: T[]) {
   });
 }
 
+export function sortSnips<T extends SortableSnip>(snips: T[]) {
+  return [...snips].sort((left, right) => {
+    if (left.position !== right.position) return left.position - right.position;
+    if (left.createdAt && right.createdAt && left.createdAt !== right.createdAt) return right.createdAt.localeCompare(left.createdAt);
+    return left.id.localeCompare(right.id);
+  });
+}
+
 export function toPublicLinks(links: ProfileLinkDraft[]) {
   return sortLinks(links)
     .filter((link) => link.isEnabled && link.visibility !== "hidden")
@@ -211,6 +227,7 @@ export function buildPublicProfileSnapshot(
   pathEntries: ProfilePathEntryDraft[] = [],
   notes: ProfileNoteDraft[] = [],
   talks: ProfileTalkDraft[] = [],
+  snippets: ProfileSnipDraft[] = [],
 ): PublicProfileSnapshot {
   const publishedSections = toPublicSections(sections);
   const publishedProjects = toPublicProjects(projects);
@@ -220,6 +237,7 @@ export function buildPublicProfileSnapshot(
   const publishedPathEntries = toPublicPathEntries(pathEntries, publishedProjects);
   const publishedNotes = toPublicNotes(notes, publishedProjects);
   const publishedTalks = toPublicTalks(talks, publishedProjects, publishedStackItems, publishedNotes);
+  const publishedSnippets = toPublicSnippets(snippets, publishedProjects);
   const publishedBlocks = toPublicBlocks(blocks, publishedSections, publishedNotes);
 
   return {
@@ -245,9 +263,43 @@ export function buildPublicProfileSnapshot(
     publishedPathEntries,
     publishedNotes,
     publishedTalks,
+    publishedSnippets,
     publishedAt,
     isPublished: true,
   };
+}
+
+export function toPublicSnippets(
+  snippets: ProfileSnipDraft[],
+  projects: PublicProjectSnapshot[],
+) {
+  const publishedProjectIds = new Set(projects.map((project) => project.id));
+  return sortSnips(snippets)
+    .filter((snip) => snip.isPublished && snip.visibility === "public")
+    .map<PublicSnipSnapshot>((snip) => ({
+      id: snip.id,
+      title: snip.title,
+      slug: snip.slug,
+      description: snip.description,
+      code: snip.code,
+      language: snip.language,
+      tags: snip.tags,
+      sourceUrl: snip.sourceUrl,
+      isFeatured: snip.isFeatured,
+      position: snip.position,
+      links: [...snip.links]
+        .filter((link) => link.isEnabled && (link.kind !== "project" || publishedProjectIds.has(link.projectId)))
+        .sort((left, right) => left.position - right.position)
+        .map((link) => ({
+          id: link.id,
+          kind: link.kind,
+          projectId: link.projectId,
+          label: link.label,
+          url: link.url,
+          position: link.position,
+          isEnabled: link.isEnabled,
+        })),
+    }));
 }
 
 export function toPublicTalks(

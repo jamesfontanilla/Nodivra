@@ -501,6 +501,15 @@ export type TalkFormat = (typeof TALK_FORMATS)[number];
 export const TALK_LINK_KINDS = ["project", "stack", "note", "website", "resource"] as const;
 export type TalkLinkKind = (typeof TALK_LINK_KINDS)[number];
 
+export const SNIP_LANGUAGES = ["typescript", "javascript", "tsx", "jsx", "python", "sql", "bash", "json", "css", "html", "markdown", "yaml", "go", "rust", "java", "php", "plaintext"] as const;
+export type SnipLanguage = (typeof SNIP_LANGUAGES)[number];
+
+export const SNIP_VISIBILITIES = ["public", "private"] as const;
+export type SnipVisibility = (typeof SNIP_VISIBILITIES)[number];
+
+export const SNIP_LINK_KINDS = ["project", "resource"] as const;
+export type SnipLinkKind = (typeof SNIP_LINK_KINDS)[number];
+
 export interface NoteLinkDraft {
   id: string;
   profileId: string;
@@ -631,6 +640,63 @@ export interface PublicTalkSnapshot {
   isFeatured: boolean;
   position: number;
   links: PublicTalkLinkSnapshot[];
+}
+
+export interface SnipLinkDraft {
+  id: string;
+  profileId: string;
+  snipId: string;
+  kind: SnipLinkKind;
+  projectId: string;
+  label: string;
+  url: string;
+  position: number;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfileSnipDraft {
+  id: string;
+  profileId: string;
+  title: string;
+  slug: string;
+  description: string;
+  code: string;
+  language: SnipLanguage;
+  visibility: SnipVisibility;
+  tags: string[];
+  sourceUrl: string;
+  isPublished: boolean;
+  isFeatured: boolean;
+  position: number;
+  links: SnipLinkDraft[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublicSnipLinkSnapshot {
+  id: string;
+  kind: SnipLinkKind;
+  projectId: string;
+  label: string;
+  url: string;
+  position: number;
+  isEnabled: boolean;
+}
+
+export interface PublicSnipSnapshot {
+  id: string;
+  title: string;
+  slug: string;
+  description: string;
+  code: string;
+  language: SnipLanguage;
+  tags: string[];
+  sourceUrl: string;
+  isFeatured: boolean;
+  position: number;
+  links: PublicSnipLinkSnapshot[];
 }
 
 export interface PublicStackCategorySnapshot {
@@ -782,6 +848,7 @@ export interface PublicProfileSnapshot {
   publishedPathEntries: PublicPathEntrySnapshot[];
   publishedNotes: PublicNoteSnapshot[];
   publishedTalks: PublicTalkSnapshot[];
+  publishedSnippets: PublicSnipSnapshot[];
   publishedAt: string;
   isPublished: boolean;
 }
@@ -810,6 +877,7 @@ export interface WorkspaceSnapshot {
   pathEntries: ProfilePathEntryDraft[];
   notes: ProfileNoteDraft[];
   talks: ProfileTalkDraft[];
+  snippets: ProfileSnipDraft[];
   published: PublicProfileSnapshot | null;
   auditLogs: AuditLogEntry[];
   mode: "demo" | "authenticated" | "anonymous";

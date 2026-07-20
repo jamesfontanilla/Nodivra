@@ -4,6 +4,7 @@ import type { PublicProfileSnapshot } from "@/types/nodivra";
 import type { PublicProjectSnapshot } from "@/types/nodivra";
 import type { PublicNoteSnapshot } from "@/types/nodivra";
 import type { PublicTalkSnapshot } from "@/types/nodivra";
+import type { PublicSnipSnapshot } from "@/types/nodivra";
 
 function buildDescription(profile?: PublicProfileSnapshot | null) {
   if (profile?.headline) {
@@ -135,6 +136,33 @@ export function buildPublicTalkMetadata(
       title,
       description,
       ...(talk.coverImageUrl ? { images: [talk.coverImageUrl] } : {}),
+    },
+  };
+}
+
+export function buildPublicSnipMetadata(
+  profile: PublicProfileSnapshot,
+  snip: PublicSnipSnapshot,
+): Metadata {
+  const title = `${snip.title} · ${profile.displayName} · ${siteName}`;
+  const description = snip.description || buildDescription(profile);
+  const canonical = new URL(`/u/${profile.handle}/snips/${snip.slug}`, getSiteUrl()).toString();
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      siteName,
+      type: "article",
+    },
+    twitter: {
+      card: "summary",
+      title,
+      description,
     },
   };
 }

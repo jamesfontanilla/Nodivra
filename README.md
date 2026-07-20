@@ -1,6 +1,6 @@
 # Nodivra
 
-Fresh build of Nodivra Pages, Blocks, Projects, Path, Notes, and Talks: a polished public profile and safe, flexible page builder for developers.
+Fresh build of Nodivra Pages, Blocks, Projects, Path, Notes, Talks, and Snips: a polished public profile and safe, flexible page builder for developers.
 
 ## Stack
 
@@ -14,7 +14,7 @@ Fresh build of Nodivra Pages, Blocks, Projects, Path, Notes, and Talks: a polish
 1. Copy `.env.example` to `.env.local`.
 1. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 1. Set `NEXT_PUBLIC_SITE_URL` to your local or deployed URL.
-1. Run `database/migrations/001_nodivra_pages.sql` and `database/migrations/002_nodivra_blocks.sql`, then apply `supabase/migrations/20260719000000_nodivra_projects.sql`, `supabase/migrations/20260719010000_nodivra_repos.sql`, `supabase/migrations/20260719020000_nodivra_stack.sql`, `supabase/migrations/20260719030000_nodivra_path.sql`, `supabase/migrations/20260720000000_nodivra_notes.sql`, and `supabase/migrations/20260720010000_nodivra_talks.sql`.
+1. Run `database/migrations/001_nodivra_pages.sql` and `database/migrations/002_nodivra_blocks.sql`, then apply `supabase/migrations/20260719000000_nodivra_projects.sql`, `supabase/migrations/20260719010000_nodivra_repos.sql`, `supabase/migrations/20260719020000_nodivra_stack.sql`, `supabase/migrations/20260719030000_nodivra_path.sql`, `supabase/migrations/20260720000000_nodivra_notes.sql`, `supabase/migrations/20260720010000_nodivra_talks.sql`, and `supabase/migrations/20260720020000_nodivra_snips.sql`.
 1. Optionally seed the demo workspace through the app's demo mode.
 
 ## Scripts
@@ -49,6 +49,9 @@ Fresh build of Nodivra Pages, Blocks, Projects, Path, Notes, and Talks: a polish
 - Talks are manually curated appearances for conferences, workshops, podcasts, panels, meetups, and livestreams. Each entry has a required event date, format, role, summary, tags, optional cover, and safe outbound links for recordings, slides, and event pages.
 - The Talks archive at `/u/[handle]/talks` supports bounded text search, format/year filters, timeline grouping, and eight-item pagination. Talk detail pages connect only to published Projects, Stack items, and Notes.
 - Talks are bounded to 40 entries, eight tags and eight context links per talk, with no more than three featured talks. Nodivra never hosts or proxies video, audio, slides, or event media and does not use external media APIs.
+- Snips are manually authored code references with controlled language labels, private/public visibility, bounded tags, optional source URLs, copy-to-clipboard, and links to published Projects or safe resources.
+- The Snips archive at `/u/[handle]/snips` supports bounded search, language/tag filters, and eight-item pagination. Public profiles show up to four featured-or-ordered Snips, with dedicated detail pages and related references.
+- Snips render submitted code as escaped text inside scrollable code blocks. Nodivra never executes, evaluates, syntax-loads, injects, stores, or proxies submitted code, and does not use code execution services, AI APIs, external storage, or background jobs.
 - Public blocks are rendered from bounded published snapshots. Unsafe URLs, arbitrary HTML, JavaScript, and iframe embeds are rejected.
 - `docs/` and `.agents/` are kept in the repo as project references.
 - Generated artifacts like `node_modules/` and `.next/` are ignored.

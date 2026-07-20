@@ -12,6 +12,7 @@ import {
   sortPathEntries,
   sortNotes,
   sortTalks,
+  sortSnips,
   sortSections,
 } from "@/lib/snapshot";
 import {
@@ -25,6 +26,7 @@ import {
   pathEntryDraftSchema,
   noteDraftSchema,
   talkDraftSchema,
+  snipDraftSchema,
   publicProfileSnapshotSchema,
   toFieldErrors,
   workspaceDraftSchema,
@@ -38,6 +40,7 @@ import {
   type ProfilePathEntryDraftInput,
   type ProfileNoteDraftInput,
   type ProfileTalkDraftInput,
+  type ProfileSnipDraftInput,
   type ProfileSectionDraftInput,
   type WorkspaceDraftInput,
 } from "@/lib/validation";
@@ -69,6 +72,11 @@ import {
   type TalkLinkDraft,
   type TalkLinkKind,
   type TalkFormat,
+  type ProfileSnipDraft,
+  type SnipLinkDraft,
+  type SnipLinkKind,
+  type SnipLanguage,
+  type SnipVisibility,
   type ProjectLinkDraft,
   type ProjectLinkKind,
   type ProjectStatus,
@@ -463,6 +471,48 @@ type TalkLinksRow = {
   updated_at: string;
 };
 
+type SnippetsRow = {
+  id: string;
+  profile_id: string;
+  title: string;
+  slug: string;
+  description: string;
+  code: string;
+  language: SnipLanguage;
+  visibility: SnipVisibility;
+  source_url: string | null;
+  is_published: boolean;
+  is_featured: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+type SnippetTagsRow = {
+  id: string;
+  profile_id: string;
+  snip_id: string;
+  tag: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type SnippetLinksRow = {
+  id: string;
+  profile_id: string;
+  snip_id: string;
+  kind: SnipLinkKind;
+  project_id: string | null;
+  label: string;
+  url: string;
+  position: number;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 type PublicProfileSettingsRow = {
   id: string;
   profile_id: string;
@@ -487,6 +537,7 @@ type PublicProfileSettingsRow = {
   published_path_entries: unknown;
   published_notes: unknown;
   published_talks: unknown;
+  published_snippets: unknown;
   is_published: boolean;
   published_at: string | null;
   updated_at: string;
@@ -591,6 +642,7 @@ export function createBlankWorkspace(
     pathEntries: [],
     notes: [],
     talks: [],
+    snippets: [],
     published: null,
     auditLogs: [],
     mode,
@@ -1014,6 +1066,53 @@ function talkRowToDraft(
   return parsed.success ? parsed.data : null;
 }
 
+function snippetTagRowToTag(row: SnippetTagsRow) {
+  return { tag: row.tag, position: row.position };
+}
+
+function snippetLinkRowToDraft(row: SnippetLinksRow): SnipLinkDraft {
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    snipId: row.snip_id,
+    kind: row.kind,
+    projectId: row.project_id ?? "",
+    label: row.label,
+    url: row.url,
+    position: row.position,
+    isEnabled: row.is_enabled,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function snippetRowToDraft(
+  row: SnippetsRow,
+  tags: SnippetTagsRow[],
+  links: SnippetLinksRow[],
+): ProfileSnipDraft | null {
+  const candidate = {
+    id: row.id,
+    profileId: row.profile_id,
+    title: row.title,
+    slug: row.slug,
+    description: row.description,
+    code: row.code,
+    language: row.language,
+    visibility: row.visibility,
+    tags: [...tags].sort((left, right) => left.position - right.position).map(snippetTagRowToTag).map((tag) => tag.tag),
+    sourceUrl: row.source_url ?? "",
+    isPublished: row.is_published,
+    isFeatured: row.is_featured,
+    position: row.position,
+    links: [...links].sort((left, right) => left.position - right.position).map(snippetLinkRowToDraft),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+  const parsed = snipDraftSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
+}
+
 function normalizeProjectDrafts(
   profileId: string,
   projects: ProfileProjectDraftInput[],
@@ -1220,6 +1319,34 @@ function normalizeTalks(
   });
 }
 
+function normalizeSnips(
+  profileId: string,
+  snippets: ProfileSnipDraftInput[],
+  existingSnips: ProfileSnipDraft[] = [],
+) {
+  const timestamp = nowIso();
+  const existingById = new Map(existingSnips.map((snip) => [snip.id, snip]));
+  return sortSnips(snippets).map<ProfileSnipDraft>((snip, position) => {
+    const existing = existingById.get(snip.id);
+    return {
+      ...snip,
+      profileId,
+      position,
+      tags: snip.tags.map((tag) => tag.trim()).filter(Boolean),
+      links: snip.links.map((link, linkPosition) => ({
+        ...link,
+        profileId,
+        snipId: snip.id,
+        position: linkPosition,
+        createdAt: existing?.links.find((item) => item.id === link.id)?.createdAt ?? link.createdAt ?? timestamp,
+        updatedAt: timestamp,
+      })),
+      createdAt: existing?.createdAt ?? snip.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    };
+  });
+}
+
 function auditRowToEntry(row: AuditLogsRow): AuditLogEntry {
   return {
     id: row.id,
@@ -1272,6 +1399,7 @@ function publicRowToSnapshot(row: PublicProfileSettingsRow): PublicProfileSnapsh
     publishedPathEntries: Array.isArray(row.published_path_entries) ? row.published_path_entries : [],
     publishedNotes: Array.isArray(row.published_notes) ? row.published_notes : [],
     publishedTalks: Array.isArray(row.published_talks) ? row.published_talks : [],
+    publishedSnippets: Array.isArray(row.published_snippets) ? row.published_snippets : [],
     publishedAt: row.published_at ?? row.updated_at,
     isPublished: row.is_published,
   };
@@ -1876,6 +2004,65 @@ function mapTalkLinksToRows(profileId: string, talks: ProfileTalkDraftInput[]): 
   })));
 }
 
+function mapSnipInputsToRows(
+  profileId: string,
+  snippets: ProfileSnipDraftInput[],
+  existingSnips: Array<{ id: string; created_at?: string; createdAt?: string }>,
+): SnippetsRow[] {
+  const timestamp = nowIso();
+  const existingById = new Map(existingSnips.map((snip) => [snip.id, snip]));
+  return sortSnips(snippets).map((snip, position) => {
+    const existing = existingById.get(snip.id);
+    return {
+      id: snip.id,
+      profile_id: profileId,
+      title: snip.title.trim(),
+      slug: snip.slug.trim().toLowerCase(),
+      description: snip.description.trim(),
+      code: snip.code.trim(),
+      language: snip.language,
+      visibility: snip.visibility,
+      source_url: snip.sourceUrl.trim() || null,
+      is_published: snip.isPublished,
+      is_featured: snip.isFeatured,
+      position,
+      created_at: existing?.created_at ?? existing?.createdAt ?? snip.createdAt ?? timestamp,
+      updated_at: timestamp,
+      deleted_at: null,
+    };
+  });
+}
+
+function mapSnipTagsToRows(profileId: string, snippets: ProfileSnipDraftInput[]): SnippetTagsRow[] {
+  const timestamp = nowIso();
+  return snippets.flatMap((snip) => snip.tags.map((tag, position) => ({
+    id: randomUUID(),
+    profile_id: profileId,
+    snip_id: snip.id,
+    tag: tag.trim(),
+    position,
+    created_at: timestamp,
+    updated_at: timestamp,
+  })));
+}
+
+function mapSnipLinksToRows(profileId: string, snippets: ProfileSnipDraftInput[]): SnippetLinksRow[] {
+  const timestamp = nowIso();
+  return snippets.flatMap((snip) => snip.links.map((link, position) => ({
+    id: link.id,
+    profile_id: profileId,
+    snip_id: snip.id,
+    kind: link.kind,
+    project_id: link.projectId || null,
+    label: link.label.trim(),
+    url: link.url.trim(),
+    position,
+    is_enabled: link.isEnabled,
+    created_at: link.createdAt ?? timestamp,
+    updated_at: timestamp,
+  })));
+}
+
 function createAuditRow(
   profileId: string,
   actorId: string,
@@ -1914,7 +2101,7 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
   }
 
   const profileId = profileRow.id;
-  const [linksResult, sectionsResult, blocksResult, projectsResult, projectTechnologiesResult, projectLinksResult, projectTagsResult, repositoriesResult, repositoryTopicsResult, repositoryLanguagesResult, repositoryLinksResult, stackCategoriesResult, stackItemsResult, stackProjectsResult, stackLinksResult, pathEntriesResult, pathHighlightsResult, pathTechnologiesResult, pathLinksResult, notesResult, noteTagsResult, noteLinksResult, talksResult, talkTagsResult, talkLinksResult, publicResult, auditResult] = await Promise.all([
+  const [linksResult, sectionsResult, blocksResult, projectsResult, projectTechnologiesResult, projectLinksResult, projectTagsResult, repositoriesResult, repositoryTopicsResult, repositoryLanguagesResult, repositoryLinksResult, stackCategoriesResult, stackItemsResult, stackProjectsResult, stackLinksResult, pathEntriesResult, pathHighlightsResult, pathTechnologiesResult, pathLinksResult, notesResult, noteTagsResult, noteLinksResult, talksResult, talkTagsResult, talkLinksResult, snippetsResult, snippetTagsResult, snippetLinksResult, publicResult, auditResult] = await Promise.all([
     client
       .from("profile_links")
       .select("*")
@@ -2076,6 +2263,25 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       .order("position", { ascending: true })
       .limit(320),
     client
+      .from("snippets")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null)
+      .order("position", { ascending: true })
+      .limit(40),
+    client
+      .from("snippet_tags")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(320),
+    client
+      .from("snippet_links")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(160),
+    client
       .from("public_profile_settings")
       .select("*")
       .eq("profile_id", profileId)
@@ -2168,6 +2374,16 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       talkLinks.filter((link) => link.talk_id === row.id),
     ))
     .filter((talk): talk is ProfileTalkDraft => talk !== null);
+  const snippetsRows = (snippetsResult.data ?? []) as SnippetsRow[];
+  const snippetTags = (snippetTagsResult.data ?? []) as SnippetTagsRow[];
+  const snippetLinks = (snippetLinksResult.data ?? []) as SnippetLinksRow[];
+  const snippets = snippetsRows
+    .map((row) => snippetRowToDraft(
+      row,
+      snippetTags.filter((tag) => tag.snip_id === row.id),
+      snippetLinks.filter((link) => link.snip_id === row.id),
+    ))
+    .filter((snip): snip is ProfileSnipDraft => snip !== null);
   const published = publicResult.data ? publicRowToSnapshot(publicResult.data) : null;
   const auditLogs = (auditResult.data ?? []).map(auditRowToEntry);
 
@@ -2183,6 +2399,7 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
     pathEntries,
     notes,
     talks,
+    snippets,
     published,
     auditLogs,
     mode: "authenticated",
@@ -2279,6 +2496,13 @@ export async function getPublicTalk(handle: string, slug: string) {
   return talk ? { profile, talk } : null;
 }
 
+export async function getPublicSnip(handle: string, slug: string) {
+  const profile = await getPublicProfile(handle);
+  if (!profile) return null;
+  const snippet = profile.publishedSnippets.find((candidate) => candidate.slug === slug.trim().toLowerCase());
+  return snippet ? { profile, snippet } : null;
+}
+
 async function persistDemoWorkspace(
   input: WorkspaceDraftInput,
   publish: boolean,
@@ -2353,6 +2577,11 @@ async function persistDemoWorkspace(
     input.talks,
     store.talks,
   );
+  const nextSnippets = normalizeSnips(
+    nextProfile.id,
+    input.snippets,
+    store.snippets,
+  );
   store.profile = nextProfile;
   store.links = nextLinks.map(linkRowToDraft);
   store.sections = nextSections;
@@ -2364,6 +2593,7 @@ async function persistDemoWorkspace(
   store.pathEntries = nextPathEntries;
   store.notes = nextNotes;
   store.talks = nextTalks;
+  store.snippets = nextSnippets;
   store.published = publish
     ? buildPublicProfileSnapshot(
         nextProfile,
@@ -2378,6 +2608,7 @@ async function persistDemoWorkspace(
         store.pathEntries,
         store.notes,
         store.talks,
+        store.snippets,
       )
     : store.published;
   store.auditLogs = [
@@ -2386,8 +2617,8 @@ async function persistDemoWorkspace(
       nextProfile.ownerId,
       publish ? "profile_published" : "profile_saved",
       publish
-        ? `Published ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, ${store.pathEntries.length} Path entries, ${store.notes.length} Notes, and ${store.talks.length} Talks`
-        : `Saved ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, ${store.pathEntries.length} Path entries, ${store.notes.length} Notes, and ${store.talks.length} Talks`,
+        ? `Published ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, ${store.pathEntries.length} Path entries, ${store.notes.length} Notes, ${store.talks.length} Talks, and ${store.snippets.length} Snips`
+        : `Saved ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, ${store.pathEntries.length} Path entries, ${store.notes.length} Notes, ${store.talks.length} Talks, and ${store.snippets.length} Snips`,
       {
         published: publish,
         linkCount: store.links.length,
@@ -2400,6 +2631,7 @@ async function persistDemoWorkspace(
         pathEntryCount: store.pathEntries.length,
         noteCount: store.notes.length,
         talkCount: store.talks.length,
+        snipCount: store.snippets.length,
       },
     ),
     ...store.auditLogs,
@@ -2531,7 +2763,7 @@ async function persistSupabaseWorkspace(
     }
   }
 
-  const [{ data: existingSectionsMany }, { data: existingBlocksMany }, { data: existingProjectsMany }, { data: existingProjectLinksMany }, { data: existingRepositoriesMany }, { data: existingRepositoryLinksMany }, { data: existingStackCategoriesMany }, { data: existingStackItemsMany }, { data: existingPathEntriesMany }, { data: existingNotesMany }, { data: existingTalksMany }] = await Promise.all([
+  const [{ data: existingSectionsMany }, { data: existingBlocksMany }, { data: existingProjectsMany }, { data: existingProjectLinksMany }, { data: existingRepositoriesMany }, { data: existingRepositoryLinksMany }, { data: existingStackCategoriesMany }, { data: existingStackItemsMany }, { data: existingPathEntriesMany }, { data: existingNotesMany }, { data: existingTalksMany }, { data: existingSnippetsMany }] = await Promise.all([
     client
       .from("profile_sections")
       .select("*")
@@ -2582,6 +2814,11 @@ async function persistSupabaseWorkspace(
       .is("deleted_at", null),
     client
       .from("talks")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null),
+    client
+      .from("snippets")
       .select("*")
       .eq("profile_id", profileId)
       .is("deleted_at", null),
@@ -2957,6 +3194,38 @@ async function persistSupabaseWorkspace(
     if (error) return { ok: false, message: error.message, fieldErrors: {} };
   }
 
+  const nextSnippets = mapSnipInputsToRows(
+    profileId,
+    input.snippets,
+    (existingSnippetsMany ?? []) as SnippetsRow[],
+  );
+  const nextSnipDrafts = normalizeSnips(profileId, input.snippets);
+  if (nextSnippets.length > 0) {
+    const { error: snipUpsertError } = await client.from("snippets").upsert(nextSnippets);
+    if (snipUpsertError) return { ok: false, message: snipUpsertError.message, fieldErrors: {} };
+  }
+  for (const table of ["snippet_tags", "snippet_links"] as const) {
+    const { error: childDeleteError } = await client.from(table).delete().eq("profile_id", profileId);
+    if (childDeleteError) return { ok: false, message: childDeleteError.message, fieldErrors: {} };
+  }
+  const snipTags = mapSnipTagsToRows(profileId, input.snippets);
+  const snipLinks = mapSnipLinksToRows(profileId, input.snippets);
+  if (snipTags.length > 0) {
+    const { error } = await client.from("snippet_tags").insert(snipTags);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  if (snipLinks.length > 0) {
+    const { error } = await client.from("snippet_links").insert(snipLinks);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  const staleSnipIds = (existingSnippetsMany ?? [])
+    .map((snip) => snip.id)
+    .filter((id) => !nextSnippets.some((snip) => snip.id === id));
+  if (staleSnipIds.length > 0) {
+    const { error } = await client.from("snippets").delete().eq("profile_id", profileId).in("id", staleSnipIds);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+
   if (publish) {
     const published = buildPublicProfileSnapshot(
       profileRowToDraft(profileRow),
@@ -2973,6 +3242,7 @@ async function persistSupabaseWorkspace(
       nextPathEntryDrafts,
       nextNoteDrafts,
       nextTalkDrafts,
+      nextSnipDrafts,
     );
     const publicRow = {
       profile_id: profileId,
@@ -2997,6 +3267,7 @@ async function persistSupabaseWorkspace(
       published_path_entries: published.publishedPathEntries,
       published_notes: published.publishedNotes,
       published_talks: published.publishedTalks,
+      published_snippets: published.publishedSnippets,
       is_published: true,
       published_at: nowIso(),
       updated_at: nowIso(),
@@ -3020,8 +3291,8 @@ async function persistSupabaseWorkspace(
     viewer.userId,
     publish ? "profile_published" : "profile_saved",
     publish
-      ? `Published ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, ${nextPathEntryDrafts.length} Path entries, ${nextNoteDrafts.length} Notes, and ${nextTalkDrafts.length} Talks`
-      : `Saved ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, ${nextPathEntryDrafts.length} Path entries, ${nextNoteDrafts.length} Notes, and ${nextTalkDrafts.length} Talks`,
+      ? `Published ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, ${nextPathEntryDrafts.length} Path entries, ${nextNoteDrafts.length} Notes, ${nextTalkDrafts.length} Talks, and ${nextSnipDrafts.length} Snips`
+      : `Saved ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, ${nextPathEntryDrafts.length} Path entries, ${nextNoteDrafts.length} Notes, ${nextTalkDrafts.length} Talks, and ${nextSnipDrafts.length} Snips`,
     {
       published: publish,
       linkCount: nextLinks.length,
@@ -3034,6 +3305,7 @@ async function persistSupabaseWorkspace(
       pathEntryCount: nextPathEntryDrafts.length,
       noteCount: nextNoteDrafts.length,
       talkCount: nextTalkDrafts.length,
+      snipCount: nextSnipDrafts.length,
       handle: profileRow.handle,
     },
   );

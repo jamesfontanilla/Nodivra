@@ -8,6 +8,7 @@ import { PublicStack } from "@/components/stack-detail";
 import { PublicPath } from "@/components/path-detail";
 import { PublicNotes } from "@/components/note-detail";
 import { PublicTalks } from "@/components/talk-detail";
+import { PublicSnippets } from "@/components/snip-detail";
 import { Reveal } from "@/components/reveal";
 import { Badge, Panel } from "@/components/ui";
 import { buildPublicProfileMetadata } from "@/lib/metadata";
@@ -59,6 +60,11 @@ export default async function PublicProfilePage({
           projects={activeProfile.publishedProjects}
           stackItems={activeProfile.publishedStackItems}
           notes={activeProfile.publishedNotes}
+          profileHandle={activeProfile.handle}
+        />
+        <PublicSnippets
+          snippets={activeProfile.publishedSnippets}
+          projects={activeProfile.publishedProjects}
           profileHandle={activeProfile.handle}
         />
         <PublicBlocks

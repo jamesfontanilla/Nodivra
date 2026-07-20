@@ -19,6 +19,9 @@ import {
   NOTE_LINK_KINDS,
   TALK_FORMATS,
   TALK_LINK_KINDS,
+  SNIP_LANGUAGES,
+  SNIP_LINK_KINDS,
+  SNIP_VISIBILITIES,
 } from "@/types/nodivra";
 
 const handlePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -959,6 +962,78 @@ export const talkDraftSchema = z
     }
   });
 
+const snipLinkDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    snipId: z.string().uuid(),
+    kind: z.enum(SNIP_LINK_KINDS),
+    projectId: z.string().uuid().or(z.literal("")),
+    label: requiredText(72, "Snip link labels must be 72 characters or fewer."),
+    url: safeHttpUrl,
+    position: z.number().int().min(0),
+    isEnabled: z.boolean().default(true),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict()
+  .superRefine((data, context) => {
+    if (data.kind === "project") {
+      if (!data.projectId) context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose a related project.", path: ["projectId"] });
+      if (data.url) context.addIssue({ code: z.ZodIssueCode.custom, message: "Project Snip links use the internal project route.", path: ["url"] });
+    } else {
+      if (!data.url) context.addIssue({ code: z.ZodIssueCode.custom, message: "Snip resource URL is required.", path: ["url"] });
+      if (data.projectId) context.addIssue({ code: z.ZodIssueCode.custom, message: "External Snip links cannot reference a project.", path: ["projectId"] });
+    }
+  });
+
+export const snipDraftSchema = z
+  .object({
+    id: z.string().uuid(),
+    profileId: z.string().uuid(),
+    title: requiredText(96, "Snip titles must be 96 characters or fewer."),
+    slug: z
+      .string()
+      .transform((value) => value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, ""))
+      .refine((value) => value.length >= 1 && value.length <= 96, { message: "Snip slugs must be 1 to 96 characters." }),
+    description: requiredText(280, "Snip descriptions must be 280 characters or fewer."),
+    code: z.string().transform((value) => value.replace(/\r\n/g, "\n").trim()).refine((value) => value.length >= 1 && value.length <= 24000, { message: "Snip code must be 1 to 24,000 characters." }),
+    language: z.enum(SNIP_LANGUAGES),
+    visibility: z.enum(SNIP_VISIBILITIES).default("public"),
+    tags: z.array(requiredText(32, "Snip tags must be 32 characters or fewer.")).max(8, "Use eight tags or fewer."),
+    sourceUrl: optionalSafeHttpUrl,
+    isPublished: z.boolean().default(false),
+    isFeatured: z.boolean().default(false),
+    position: z.number().int().min(0),
+    links: z.array(snipLinkDraftSchema).max(4),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+  })
+  .strict()
+  .superRefine((data, context) => {
+    if (data.isFeatured && (!data.isPublished || data.visibility !== "public")) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Only published Snips can be featured.", path: ["isFeatured"] });
+    }
+    const tags = new Set<string>();
+    for (const [index, tag] of data.tags.entries()) {
+      const normalizedTag = tag.toLowerCase();
+      if (tags.has(normalizedTag)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Snip tags must be unique.", path: ["tags", index] });
+      }
+      tags.add(normalizedTag);
+    }
+    const linkIds = new Set<string>();
+    for (const [index, link] of data.links.entries()) {
+      if (link.profileId !== data.profileId || link.snipId !== data.id) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Snip links must belong to their Snip.", path: ["links", index] });
+      }
+      if (linkIds.has(link.id)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Snip link IDs must be unique.", path: ["links", index, "id"] });
+      }
+      linkIds.add(link.id);
+    }
+  });
+
 export const workspaceDraftSchema = z.object({
   profile: profileDraftSchema,
   links: z.array(profileLinkDraftSchema).max(30),
@@ -971,6 +1046,7 @@ export const workspaceDraftSchema = z.object({
   pathEntries: z.array(pathEntryDraftSchema).max(40).default([]),
   notes: z.array(noteDraftSchema).max(40).default([]),
   talks: z.array(talkDraftSchema).max(40).default([]),
+  snippets: z.array(snipDraftSchema).max(40).default([]),
 }).superRefine((data, context) => {
   const sectionIds = new Set<string>();
   for (const [index, section] of data.sections.entries()) {
@@ -1233,6 +1309,32 @@ export const workspaceDraftSchema = z.object({
   if (featuredTalkCount > 3) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose three featured Talks or fewer.", path: ["talks"] });
   }
+
+  const snipIds = new Set<string>();
+  const snipSlugs = new Set<string>();
+  let featuredSnipCount = 0;
+  for (const [index, snip] of data.snippets.entries()) {
+    if (snipIds.has(snip.id)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Snip IDs must be unique.", path: ["snippets", index, "id"] });
+    }
+    if (snipSlugs.has(snip.slug)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Snip slugs must be unique.", path: ["snippets", index, "slug"] });
+    }
+    if (data.profile.id && snip.profileId !== data.profile.id) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Snips must belong to the current profile.", path: ["snippets", index, "profileId"] });
+    }
+    if (snip.isFeatured) featuredSnipCount += 1;
+    for (const [linkIndex, link] of snip.links.entries()) {
+      if (link.kind === "project" && !workspaceProjectIds.has(link.projectId)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Snip project links must reference a project in this workspace.", path: ["snippets", index, "links", linkIndex, "projectId"] });
+      }
+    }
+    snipIds.add(snip.id);
+    snipSlugs.add(snip.slug);
+  }
+  if (featuredSnipCount > 3) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose three featured Snips or fewer.", path: ["snippets"] });
+  }
 });
 
 export const publishWorkspaceSchema = workspaceDraftSchema;
@@ -1442,6 +1544,27 @@ export const publicProfileSnapshotSchema = z.object({
       isEnabled: z.boolean(),
     }).strict()),
   }).strict()).default([]),
+  publishedSnippets: z.array(z.object({
+    id: z.string().uuid(),
+    title: z.string(),
+    slug: z.string(),
+    description: z.string(),
+    code: z.string(),
+    language: z.enum(SNIP_LANGUAGES),
+    tags: z.array(z.string()),
+    sourceUrl: safeHttpUrl,
+    isFeatured: z.boolean(),
+    position: z.number().int().min(0),
+    links: z.array(z.object({
+      id: z.string().uuid(),
+      kind: z.enum(SNIP_LINK_KINDS),
+      projectId: z.string().uuid().or(z.literal("")),
+      label: z.string(),
+      url: safeHttpUrl,
+      position: z.number().int().min(0),
+      isEnabled: z.boolean(),
+    }).strict()),
+  }).strict()).default([]),
   publishedAt: z.string(),
   isPublished: z.boolean(),
 });
@@ -1457,6 +1580,7 @@ export type ProfileStackItemDraftInput = z.infer<typeof stackItemDraftSchema>;
 export type ProfilePathEntryDraftInput = z.infer<typeof pathEntryDraftSchema>;
 export type ProfileNoteDraftInput = z.infer<typeof noteDraftSchema>;
 export type ProfileTalkDraftInput = z.infer<typeof talkDraftSchema>;
+export type ProfileSnipDraftInput = z.infer<typeof snipDraftSchema>;
 export type WorkspaceDraftInput = z.infer<typeof workspaceDraftSchema>;
 export type PublicLinkSnapshotInput = z.infer<typeof publicLinkSnapshotSchema>;
 export type PublicProfileSnapshotInput = z.infer<typeof publicProfileSnapshotSchema>;

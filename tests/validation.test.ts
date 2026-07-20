@@ -10,6 +10,7 @@ import {
   repositoryDraftSchema,
   pathEntryDraftSchema,
   noteDraftSchema,
+  snipDraftSchema,
   talkDraftSchema,
   stackItemDraftSchema,
   workspaceDraftSchema,
@@ -167,6 +168,27 @@ describe("validation helpers", () => {
       eventUrl: "https://example.com/event",
       coverImageUrl: "",
       tags: ["systems", "design"],
+      isPublished,
+      isFeatured: false,
+      position: 0,
+      links: [],
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+  }
+
+  function snip(id: string, slug = "useful-snip", isPublished = false) {
+    return {
+      id,
+      profileId,
+      title: "A useful code reference",
+      slug,
+      description: "A bounded explanation of a small pattern and when to use it.",
+      code: "const answer = 42;",
+      language: "typescript",
+      visibility: "public",
+      tags: ["systems", "reference"],
+      sourceUrl: "",
       isPublished,
       isFeatured: false,
       position: 0,
@@ -486,6 +508,74 @@ describe("validation helpers", () => {
     expect(missingDate.success).toBe(false);
     expect(duplicateTags.success).toBe(false);
     expect(externalWithRelation.success).toBe(false);
+  });
+
+  it("keeps Snips inert, bounded, and publication-scoped", () => {
+    const valid = snipDraftSchema.safeParse(snip("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeef", "safe-snip", true));
+    const unsafeUrl = snipDraftSchema.safeParse({ ...snip("ffffffff-ffff-4fff-8fff-ffffffffffff"), sourceUrl: "javascript:alert(1)" });
+    const oversizedCode = snipDraftSchema.safeParse({ ...snip("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab"), code: "x".repeat(24001) });
+    const privateFeatured = snipDraftSchema.safeParse({ ...snip("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbc", "private-snip", true), visibility: "private", isFeatured: true });
+    const duplicateTags = snipDraftSchema.safeParse({ ...snip("cccccccc-cccc-4ccc-8ccc-cccccccccccd"), tags: ["Systems", "systems"] });
+    const invalidProjectLink = snipDraftSchema.safeParse({
+      ...snip("dddddddd-dddd-4ddd-8ddd-ddddddddddde"),
+      links: [{
+        id: "99999999-9999-4999-8999-999999999999",
+        profileId,
+        snipId: "dddddddd-dddd-4ddd-8ddd-ddddddddddde",
+        kind: "project",
+        projectId: "88888888-8888-4888-8888-888888888888",
+        label: "Related work",
+        url: "",
+        position: 0,
+        isEnabled: true,
+        createdAt: "2026-07-18T00:00:00.000Z",
+        updatedAt: "2026-07-18T00:00:00.000Z",
+      }],
+    });
+
+    expect(valid.success).toBe(true);
+    expect(unsafeUrl.success).toBe(false);
+    expect(oversizedCode.success).toBe(false);
+    expect(privateFeatured.success).toBe(false);
+    expect(duplicateTags.success).toBe(false);
+    expect(invalidProjectLink.success).toBe(true);
+
+    const workspace = workspaceDraftSchema.safeParse({
+      profile: {
+        id: profileId,
+        handle: "jamie-fontanilla",
+        displayName: "Jamie Fontanilla",
+        headline: "",
+        bio: "",
+        locationText: "",
+        timezone: "UTC",
+        avatarInitials: "JF",
+        avatarUrl: "",
+        primaryCtaLabel: "",
+        primaryCtaUrl: "",
+        availabilityStatus: "available",
+        isPublished: false,
+      },
+      links: [],
+      snippets: [{
+        ...snip("11111111-1111-4111-8111-111111111112", "linked-snip"),
+        links: [{
+          id: "22222222-2222-4222-8222-222222222223",
+          profileId,
+          snipId: "11111111-1111-4111-8111-111111111112",
+          kind: "project",
+          projectId: "33333333-3333-4333-8333-333333333334",
+          label: "Missing project",
+          url: "",
+          position: 0,
+          isEnabled: true,
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+        }],
+      }],
+    });
+
+    expect(workspace.success).toBe(false);
   });
 
   it("validates controlled Stack categories, icons, ownership, and project links", () => {
