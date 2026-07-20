@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowUpRightIcon, CheckIcon, CopyIcon, LinkIcon, SparkIcon } from "@/components/icons";
+import { ArrowUpRightIcon, CheckIcon, CopyIcon, LinkIcon } from "@/components/icons";
 import { Badge } from "@/components/ui";
 import type { ProfileSnipDraft, PublicProjectSnapshot, PublicSnipSnapshot, SnipLanguage } from "@/types/nodivra";
 
