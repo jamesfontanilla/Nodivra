@@ -699,6 +699,99 @@ export interface PublicSnipSnapshot {
   links: PublicSnipLinkSnapshot[];
 }
 
+export const WORK_AVAILABILITY_STATUSES = [
+  "available",
+  "limited_availability",
+  "not_available",
+  "open_to_conversations",
+] as const;
+
+export type WorkAvailabilityStatus = (typeof WORK_AVAILABILITY_STATUSES)[number];
+
+export const WORK_SERVICE_LINK_KINDS = ["project", "resource"] as const;
+export type WorkServiceLinkKind = (typeof WORK_SERVICE_LINK_KINDS)[number];
+
+export interface WorkServiceLinkDraft {
+  id: string;
+  profileId: string;
+  serviceId: string;
+  kind: WorkServiceLinkKind;
+  projectId: string;
+  label: string;
+  url: string;
+  position: number;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfileWorkServiceDraft {
+  id: string;
+  profileId: string;
+  title: string;
+  slug: string;
+  description: string;
+  startingPriceText: string;
+  deliveryTimeText: string;
+  skills: string[];
+  availabilityStatus: WorkAvailabilityStatus;
+  contactCtaLabel: string;
+  contactCtaUrl: string;
+  isPublished: boolean;
+  isFeatured: boolean;
+  position: number;
+  links: WorkServiceLinkDraft[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AvailabilitySettingsDraft {
+  id: string;
+  profileId: string;
+  status: WorkAvailabilityStatus;
+  headline: string;
+  detail: string;
+  contactCtaLabel: string;
+  contactCtaUrl: string;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublicWorkServiceLinkSnapshot {
+  id: string;
+  kind: WorkServiceLinkKind;
+  projectId: string;
+  label: string;
+  url: string;
+  position: number;
+  isEnabled: boolean;
+}
+
+export interface PublicWorkServiceSnapshot {
+  id: string;
+  title: string;
+  slug: string;
+  description: string;
+  startingPriceText: string;
+  deliveryTimeText: string;
+  skills: string[];
+  availabilityStatus: WorkAvailabilityStatus;
+  contactCtaLabel: string;
+  contactCtaUrl: string;
+  isFeatured: boolean;
+  position: number;
+  links: PublicWorkServiceLinkSnapshot[];
+}
+
+export interface PublicAvailabilitySnapshot {
+  status: WorkAvailabilityStatus;
+  headline: string;
+  detail: string;
+  contactCtaLabel: string;
+  contactCtaUrl: string;
+}
+
 export interface PublicStackCategorySnapshot {
   id: string;
   key: StackCategoryKey;
@@ -849,6 +942,8 @@ export interface PublicProfileSnapshot {
   publishedNotes: PublicNoteSnapshot[];
   publishedTalks: PublicTalkSnapshot[];
   publishedSnippets: PublicSnipSnapshot[];
+  publishedAvailability: PublicAvailabilitySnapshot | null;
+  publishedServices: PublicWorkServiceSnapshot[];
   publishedAt: string;
   isPublished: boolean;
 }
@@ -878,6 +973,8 @@ export interface WorkspaceSnapshot {
   notes: ProfileNoteDraft[];
   talks: ProfileTalkDraft[];
   snippets: ProfileSnipDraft[];
+  availabilitySettings: AvailabilitySettingsDraft;
+  services: ProfileWorkServiceDraft[];
   published: PublicProfileSnapshot | null;
   auditLogs: AuditLogEntry[];
   mode: "demo" | "authenticated" | "anonymous";

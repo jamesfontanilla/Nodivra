@@ -13,6 +13,7 @@ import {
   sortNotes,
   sortTalks,
   sortSnips,
+  sortWorkServices,
   sortSections,
 } from "@/lib/snapshot";
 import {
@@ -27,6 +28,8 @@ import {
   noteDraftSchema,
   talkDraftSchema,
   snipDraftSchema,
+  availabilitySettingsSchema,
+  workServiceDraftSchema,
   publicProfileSnapshotSchema,
   toFieldErrors,
   workspaceDraftSchema,
@@ -41,6 +44,8 @@ import {
   type ProfileNoteDraftInput,
   type ProfileTalkDraftInput,
   type ProfileSnipDraftInput,
+  type ProfileWorkServiceDraftInput,
+  type AvailabilitySettingsDraftInput,
   type ProfileSectionDraftInput,
   type WorkspaceDraftInput,
 } from "@/lib/validation";
@@ -77,6 +82,11 @@ import {
   type SnipLinkKind,
   type SnipLanguage,
   type SnipVisibility,
+  type AvailabilitySettingsDraft,
+  type ProfileWorkServiceDraft,
+  type WorkServiceLinkDraft,
+  type WorkAvailabilityStatus,
+  type WorkServiceLinkKind,
   type ProjectLinkDraft,
   type ProjectLinkKind,
   type ProjectStatus,
@@ -513,6 +523,62 @@ type SnippetLinksRow = {
   updated_at: string;
 };
 
+type AvailabilitySettingsRow = {
+  id: string;
+  profile_id: string;
+  status: WorkAvailabilityStatus;
+  headline: string;
+  detail: string;
+  contact_cta_label: string;
+  contact_cta_url: string | null;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type ServicesRow = {
+  id: string;
+  profile_id: string;
+  title: string;
+  slug: string;
+  description: string;
+  starting_price_text: string;
+  delivery_time_text: string;
+  availability_status: WorkAvailabilityStatus;
+  contact_cta_label: string;
+  contact_cta_url: string | null;
+  is_published: boolean;
+  is_featured: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+type ServiceSkillsRow = {
+  id: string;
+  profile_id: string;
+  service_id: string;
+  skill: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type ServiceLinksRow = {
+  id: string;
+  profile_id: string;
+  service_id: string;
+  kind: WorkServiceLinkKind;
+  project_id: string | null;
+  label: string;
+  url: string;
+  position: number;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 type PublicProfileSettingsRow = {
   id: string;
   profile_id: string;
@@ -538,6 +604,8 @@ type PublicProfileSettingsRow = {
   published_notes: unknown;
   published_talks: unknown;
   published_snippets: unknown;
+  published_availability: unknown;
+  published_services: unknown;
   is_published: boolean;
   published_at: string | null;
   updated_at: string;
@@ -625,6 +693,22 @@ function createStarterStackCategories(profileId: string): ProfileStackCategoryDr
   }));
 }
 
+function createBlankAvailabilitySettings(profileId: string): AvailabilitySettingsDraft {
+  const timestamp = nowIso();
+  return {
+    id: randomUUID(),
+    profileId,
+    status: "open_to_conversations",
+    headline: "Open to thoughtful conversations.",
+    detail: "Share a little context and I will help you find the right next step.",
+    contactCtaLabel: "Start a conversation",
+    contactCtaUrl: "",
+    isEnabled: false,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
 export function createBlankWorkspace(
   mode: ViewerContext["mode"],
   ownerId: string,
@@ -643,6 +727,8 @@ export function createBlankWorkspace(
     notes: [],
     talks: [],
     snippets: [],
+    availabilitySettings: createBlankAvailabilitySettings(profile.id),
+    services: [],
     published: null,
     auditLogs: [],
     mode,
@@ -1113,6 +1199,68 @@ function snippetRowToDraft(
   return parsed.success ? parsed.data : null;
 }
 
+function availabilityRowToDraft(row: AvailabilitySettingsRow): AvailabilitySettingsDraft | null {
+  const parsed = workspaceAvailabilityInput(row);
+  return parsed;
+}
+
+function workspaceAvailabilityInput(row: AvailabilitySettingsRow): AvailabilitySettingsDraft | null {
+  const candidate: AvailabilitySettingsDraft = {
+    id: row.id,
+    profileId: row.profile_id,
+    status: row.status,
+    headline: row.headline,
+    detail: row.detail,
+    contactCtaLabel: row.contact_cta_label,
+    contactCtaUrl: row.contact_cta_url ?? "",
+    isEnabled: row.is_enabled,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+  const parsed = availabilitySettingsSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
+}
+
+function serviceLinkRowToDraft(row: ServiceLinksRow): WorkServiceLinkDraft {
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    serviceId: row.service_id,
+    kind: row.kind,
+    projectId: row.project_id ?? "",
+    label: row.label,
+    url: row.url,
+    position: row.position,
+    isEnabled: row.is_enabled,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function serviceRowToDraft(row: ServicesRow, skills: ServiceSkillsRow[], links: ServiceLinksRow[]): ProfileWorkServiceDraft | null {
+  const candidate = {
+    id: row.id,
+    profileId: row.profile_id,
+    title: row.title,
+    slug: row.slug,
+    description: row.description,
+    startingPriceText: row.starting_price_text,
+    deliveryTimeText: row.delivery_time_text,
+    skills: skills.filter((skill) => skill.service_id === row.id).sort((a, b) => a.position - b.position).map((skill) => skill.skill),
+    availabilityStatus: row.availability_status,
+    contactCtaLabel: row.contact_cta_label,
+    contactCtaUrl: row.contact_cta_url ?? "",
+    isPublished: row.is_published,
+    isFeatured: row.is_featured,
+    position: row.position,
+    links: links.filter((link) => link.service_id === row.id).sort((a, b) => a.position - b.position).map(serviceLinkRowToDraft),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+  const parsed = workServiceDraftSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
+}
+
 function normalizeProjectDrafts(
   profileId: string,
   projects: ProfileProjectDraftInput[],
@@ -1347,6 +1495,46 @@ function normalizeSnips(
   });
 }
 
+function normalizeAvailabilitySettings(profileId: string, input: AvailabilitySettingsDraftInput | undefined, existing?: AvailabilitySettingsDraft): AvailabilitySettingsDraft {
+  const timestamp = nowIso();
+  return {
+    id: existing?.id ?? input?.id ?? randomUUID(),
+    profileId,
+    status: input?.status ?? existing?.status ?? "open_to_conversations",
+    headline: input?.headline ?? existing?.headline ?? "",
+    detail: input?.detail ?? existing?.detail ?? "",
+    contactCtaLabel: input?.contactCtaLabel ?? existing?.contactCtaLabel ?? "",
+    contactCtaUrl: input?.contactCtaUrl ?? existing?.contactCtaUrl ?? "",
+    isEnabled: input?.isEnabled ?? existing?.isEnabled ?? false,
+    createdAt: existing?.createdAt ?? input?.createdAt ?? timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+function normalizeServices(profileId: string, services: ProfileWorkServiceDraftInput[], existingServices: ProfileWorkServiceDraft[] = []) {
+  const timestamp = nowIso();
+  const existingById = new Map(existingServices.map((service) => [service.id, service]));
+  return sortWorkServices(services).map<ProfileWorkServiceDraft>((service, position) => {
+    const existing = existingById.get(service.id);
+    return {
+      ...service,
+      profileId,
+      position,
+      skills: service.skills.map((skill) => skill.trim()).filter(Boolean),
+      links: service.links.map((link, linkPosition) => ({
+        ...link,
+        profileId,
+        serviceId: service.id,
+        position: linkPosition,
+        createdAt: existing?.links.find((item) => item.id === link.id)?.createdAt ?? link.createdAt ?? timestamp,
+        updatedAt: timestamp,
+      })),
+      createdAt: existing?.createdAt ?? service.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    };
+  });
+}
+
 function auditRowToEntry(row: AuditLogsRow): AuditLogEntry {
   return {
     id: row.id,
@@ -1400,6 +1588,8 @@ function publicRowToSnapshot(row: PublicProfileSettingsRow): PublicProfileSnapsh
     publishedNotes: Array.isArray(row.published_notes) ? row.published_notes : [],
     publishedTalks: Array.isArray(row.published_talks) ? row.published_talks : [],
     publishedSnippets: Array.isArray(row.published_snippets) ? row.published_snippets : [],
+    publishedAvailability: row.published_availability && typeof row.published_availability === "object" ? row.published_availability : null,
+    publishedServices: Array.isArray(row.published_services) ? row.published_services : [],
     publishedAt: row.published_at ?? row.updated_at,
     isPublished: row.is_published,
   };
@@ -2063,6 +2253,79 @@ function mapSnipLinksToRows(profileId: string, snippets: ProfileSnipDraftInput[]
   })));
 }
 
+function mapAvailabilitySettingsToRow(profileId: string, settings: AvailabilitySettingsDraftInput | undefined, existing?: AvailabilitySettingsRow | null): AvailabilitySettingsRow {
+  const timestamp = nowIso();
+  const normalized = normalizeAvailabilitySettings(profileId, settings, existing ? availabilityRowToDraft(existing) ?? undefined : undefined);
+  return {
+    id: normalized.id,
+    profile_id: profileId,
+    status: normalized.status,
+    headline: normalized.headline.trim(),
+    detail: normalized.detail.trim(),
+    contact_cta_label: normalized.contactCtaLabel.trim(),
+    contact_cta_url: normalized.contactCtaUrl.trim() || null,
+    is_enabled: normalized.isEnabled,
+    created_at: existing?.created_at ?? normalized.createdAt ?? timestamp,
+    updated_at: timestamp,
+  };
+}
+
+function mapServiceInputsToRows(profileId: string, services: ProfileWorkServiceDraftInput[], existing: ServicesRow[]): ServicesRow[] {
+  const timestamp = nowIso();
+  const existingById = new Map(existing.map((service) => [service.id, service]));
+  return sortWorkServices(services).map((service, position) => {
+    const old = existingById.get(service.id);
+    return {
+      id: service.id,
+      profile_id: profileId,
+      title: service.title.trim(),
+      slug: service.slug.trim().toLowerCase(),
+      description: service.description.trim(),
+      starting_price_text: service.startingPriceText.trim(),
+      delivery_time_text: service.deliveryTimeText.trim(),
+      availability_status: service.availabilityStatus,
+      contact_cta_label: service.contactCtaLabel.trim(),
+      contact_cta_url: service.contactCtaUrl.trim() || null,
+      is_published: service.isPublished,
+      is_featured: service.isFeatured,
+      position,
+      created_at: old?.created_at ?? service.createdAt ?? timestamp,
+      updated_at: timestamp,
+      deleted_at: null,
+    };
+  });
+}
+
+function mapServiceSkillsToRows(profileId: string, services: ProfileWorkServiceDraftInput[]): ServiceSkillsRow[] {
+  const timestamp = nowIso();
+  return services.flatMap((service) => service.skills.map((skill, position) => ({
+    id: randomUUID(),
+    profile_id: profileId,
+    service_id: service.id,
+    skill: skill.trim(),
+    position,
+    created_at: timestamp,
+    updated_at: timestamp,
+  })));
+}
+
+function mapServiceLinksToRows(profileId: string, services: ProfileWorkServiceDraftInput[]): ServiceLinksRow[] {
+  const timestamp = nowIso();
+  return services.flatMap((service) => service.links.map((link, position) => ({
+    id: link.id,
+    profile_id: profileId,
+    service_id: service.id,
+    kind: link.kind,
+    project_id: link.projectId || null,
+    label: link.label.trim(),
+    url: link.url.trim(),
+    position,
+    is_enabled: link.isEnabled,
+    created_at: link.createdAt ?? timestamp,
+    updated_at: timestamp,
+  })));
+}
+
 function createAuditRow(
   profileId: string,
   actorId: string,
@@ -2101,7 +2364,7 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
   }
 
   const profileId = profileRow.id;
-  const [linksResult, sectionsResult, blocksResult, projectsResult, projectTechnologiesResult, projectLinksResult, projectTagsResult, repositoriesResult, repositoryTopicsResult, repositoryLanguagesResult, repositoryLinksResult, stackCategoriesResult, stackItemsResult, stackProjectsResult, stackLinksResult, pathEntriesResult, pathHighlightsResult, pathTechnologiesResult, pathLinksResult, notesResult, noteTagsResult, noteLinksResult, talksResult, talkTagsResult, talkLinksResult, snippetsResult, snippetTagsResult, snippetLinksResult, publicResult, auditResult] = await Promise.all([
+  const [linksResult, sectionsResult, blocksResult, projectsResult, projectTechnologiesResult, projectLinksResult, projectTagsResult, repositoriesResult, repositoryTopicsResult, repositoryLanguagesResult, repositoryLinksResult, stackCategoriesResult, stackItemsResult, stackProjectsResult, stackLinksResult, pathEntriesResult, pathHighlightsResult, pathTechnologiesResult, pathLinksResult, notesResult, noteTagsResult, noteLinksResult, talksResult, talkTagsResult, talkLinksResult, snippetsResult, snippetTagsResult, snippetLinksResult, availabilityResult, servicesResult, serviceSkillsResult, serviceLinksResult, publicResult, auditResult] = await Promise.all([
     client
       .from("profile_links")
       .select("*")
@@ -2282,6 +2545,30 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       .order("position", { ascending: true })
       .limit(160),
     client
+      .from("availability_settings")
+      .select("*")
+      .eq("profile_id", profileId)
+      .maybeSingle<AvailabilitySettingsRow>(),
+    client
+      .from("services")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null)
+      .order("position", { ascending: true })
+      .limit(40),
+    client
+      .from("service_skills")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(320),
+    client
+      .from("service_links")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("position", { ascending: true })
+      .limit(160),
+    client
       .from("public_profile_settings")
       .select("*")
       .eq("profile_id", profileId)
@@ -2384,6 +2671,14 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
       snippetLinks.filter((link) => link.snip_id === row.id),
     ))
     .filter((snip): snip is ProfileSnipDraft => snip !== null);
+  const availabilitySettings = availabilityResult.data
+    ? availabilityRowToDraft(availabilityResult.data as AvailabilitySettingsRow)
+    : null;
+  const serviceSkills = (serviceSkillsResult.data ?? []) as ServiceSkillsRow[];
+  const serviceLinks = (serviceLinksResult.data ?? []) as ServiceLinksRow[];
+  const services = (servicesResult.data ?? [])
+    .map((row) => serviceRowToDraft(row as ServicesRow, serviceSkills, serviceLinks))
+    .filter((service): service is ProfileWorkServiceDraft => service !== null);
   const published = publicResult.data ? publicRowToSnapshot(publicResult.data) : null;
   const auditLogs = (auditResult.data ?? []).map(auditRowToEntry);
 
@@ -2400,6 +2695,8 @@ async function loadSupabaseWorkspace(userId: string): Promise<WorkspaceSnapshot>
     notes,
     talks,
     snippets,
+    availabilitySettings: availabilitySettings ?? createBlankAvailabilitySettings(profileId),
+    services,
     published,
     auditLogs,
     mode: "authenticated",
@@ -2503,6 +2800,13 @@ export async function getPublicSnip(handle: string, slug: string) {
   return snippet ? { profile, snippet } : null;
 }
 
+export async function getPublicWorkService(handle: string, slug: string) {
+  const profile = await getPublicProfile(handle);
+  if (!profile) return null;
+  const service = profile.publishedServices.find((candidate) => candidate.slug === slug.trim().toLowerCase());
+  return service ? { profile, service } : null;
+}
+
 async function persistDemoWorkspace(
   input: WorkspaceDraftInput,
   publish: boolean,
@@ -2582,6 +2886,16 @@ async function persistDemoWorkspace(
     input.snippets,
     store.snippets,
   );
+  const nextAvailabilitySettings = normalizeAvailabilitySettings(
+    nextProfile.id,
+    input.availabilitySettings,
+    store.availabilitySettings,
+  );
+  const nextServices = normalizeServices(
+    nextProfile.id,
+    input.services,
+    store.services,
+  );
   store.profile = nextProfile;
   store.links = nextLinks.map(linkRowToDraft);
   store.sections = nextSections;
@@ -2594,6 +2908,8 @@ async function persistDemoWorkspace(
   store.notes = nextNotes;
   store.talks = nextTalks;
   store.snippets = nextSnippets;
+  store.availabilitySettings = nextAvailabilitySettings;
+  store.services = nextServices;
   store.published = publish
     ? buildPublicProfileSnapshot(
         nextProfile,
@@ -2609,6 +2925,8 @@ async function persistDemoWorkspace(
         store.notes,
         store.talks,
         store.snippets,
+        nextAvailabilitySettings,
+        nextServices,
       )
     : store.published;
   store.auditLogs = [
@@ -2617,8 +2935,8 @@ async function persistDemoWorkspace(
       nextProfile.ownerId,
       publish ? "profile_published" : "profile_saved",
       publish
-        ? `Published ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, ${store.pathEntries.length} Path entries, ${store.notes.length} Notes, ${store.talks.length} Talks, and ${store.snippets.length} Snips`
-        : `Saved ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, ${store.pathEntries.length} Path entries, ${store.notes.length} Notes, ${store.talks.length} Talks, and ${store.snippets.length} Snips`,
+        ? `Published ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, ${store.pathEntries.length} Path entries, ${store.notes.length} Notes, ${store.talks.length} Talks, ${store.snippets.length} Snips, and ${store.services.length} Work services`
+        : `Saved ${store.links.length} links, ${store.blocks.length} blocks, ${store.projects.length} projects, ${store.repositories.length} repositories, ${store.stackItems.length} stack items, ${store.pathEntries.length} Path entries, ${store.notes.length} Notes, ${store.talks.length} Talks, ${store.snippets.length} Snips, and ${store.services.length} Work services`,
       {
         published: publish,
         linkCount: store.links.length,
@@ -2632,6 +2950,8 @@ async function persistDemoWorkspace(
         noteCount: store.notes.length,
         talkCount: store.talks.length,
         snipCount: store.snippets.length,
+        serviceCount: store.services.length,
+        availabilityStatus: store.availabilitySettings.status,
       },
     ),
     ...store.auditLogs,
@@ -2763,7 +3083,7 @@ async function persistSupabaseWorkspace(
     }
   }
 
-  const [{ data: existingSectionsMany }, { data: existingBlocksMany }, { data: existingProjectsMany }, { data: existingProjectLinksMany }, { data: existingRepositoriesMany }, { data: existingRepositoryLinksMany }, { data: existingStackCategoriesMany }, { data: existingStackItemsMany }, { data: existingPathEntriesMany }, { data: existingNotesMany }, { data: existingTalksMany }, { data: existingSnippetsMany }] = await Promise.all([
+  const [{ data: existingSectionsMany }, { data: existingBlocksMany }, { data: existingProjectsMany }, { data: existingProjectLinksMany }, { data: existingRepositoriesMany }, { data: existingRepositoryLinksMany }, { data: existingStackCategoriesMany }, { data: existingStackItemsMany }, { data: existingPathEntriesMany }, { data: existingNotesMany }, { data: existingTalksMany }, { data: existingSnippetsMany }, { data: existingAvailability }, { data: existingServicesMany }] = await Promise.all([
     client
       .from("profile_sections")
       .select("*")
@@ -2819,6 +3139,16 @@ async function persistSupabaseWorkspace(
       .is("deleted_at", null),
     client
       .from("snippets")
+      .select("*")
+      .eq("profile_id", profileId)
+      .is("deleted_at", null),
+    client
+      .from("availability_settings")
+      .select("*")
+      .eq("profile_id", profileId)
+      .maybeSingle<AvailabilitySettingsRow>(),
+    client
+      .from("services")
       .select("*")
       .eq("profile_id", profileId)
       .is("deleted_at", null),
@@ -3226,6 +3556,41 @@ async function persistSupabaseWorkspace(
     if (error) return { ok: false, message: error.message, fieldErrors: {} };
   }
 
+  const nextAvailability = mapAvailabilitySettingsToRow(
+    profileId,
+    input.availabilitySettings,
+    (existingAvailability as AvailabilitySettingsRow | null) ?? null,
+  );
+  const { error: availabilityUpsertError } = await client.from("availability_settings").upsert(nextAvailability);
+  if (availabilityUpsertError) return { ok: false, message: availabilityUpsertError.message, fieldErrors: {} };
+
+  const nextServices = mapServiceInputsToRows(profileId, input.services, (existingServicesMany ?? []) as ServicesRow[]);
+  if (nextServices.length > 0) {
+    const { error: serviceUpsertError } = await client.from("services").upsert(nextServices);
+    if (serviceUpsertError) return { ok: false, message: serviceUpsertError.message, fieldErrors: {} };
+  }
+  for (const table of ["service_skills", "service_links"] as const) {
+    const { error: childDeleteError } = await client.from(table).delete().eq("profile_id", profileId);
+    if (childDeleteError) return { ok: false, message: childDeleteError.message, fieldErrors: {} };
+  }
+  const serviceSkills = mapServiceSkillsToRows(profileId, input.services);
+  const serviceLinks = mapServiceLinksToRows(profileId, input.services);
+  if (serviceSkills.length > 0) {
+    const { error } = await client.from("service_skills").insert(serviceSkills);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  if (serviceLinks.length > 0) {
+    const { error } = await client.from("service_links").insert(serviceLinks);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+  const staleServiceIds = (existingServicesMany ?? [])
+    .map((service) => service.id)
+    .filter((id) => !nextServices.some((service) => service.id === id));
+  if (staleServiceIds.length > 0) {
+    const { error } = await client.from("services").delete().eq("profile_id", profileId).in("id", staleServiceIds);
+    if (error) return { ok: false, message: error.message, fieldErrors: {} };
+  }
+
   if (publish) {
     const published = buildPublicProfileSnapshot(
       profileRowToDraft(profileRow),
@@ -3243,6 +3608,8 @@ async function persistSupabaseWorkspace(
       nextNoteDrafts,
       nextTalkDrafts,
       nextSnipDrafts,
+      normalizeAvailabilitySettings(profileId, input.availabilitySettings, existingAvailability ? availabilityRowToDraft(existingAvailability as AvailabilitySettingsRow) ?? undefined : undefined),
+      normalizeServices(profileId, input.services),
     );
     const publicRow = {
       profile_id: profileId,
@@ -3268,6 +3635,8 @@ async function persistSupabaseWorkspace(
       published_notes: published.publishedNotes,
       published_talks: published.publishedTalks,
       published_snippets: published.publishedSnippets,
+      published_availability: published.publishedAvailability,
+      published_services: published.publishedServices,
       is_published: true,
       published_at: nowIso(),
       updated_at: nowIso(),
@@ -3291,8 +3660,8 @@ async function persistSupabaseWorkspace(
     viewer.userId,
     publish ? "profile_published" : "profile_saved",
     publish
-      ? `Published ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, ${nextPathEntryDrafts.length} Path entries, ${nextNoteDrafts.length} Notes, ${nextTalkDrafts.length} Talks, and ${nextSnipDrafts.length} Snips`
-      : `Saved ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, ${nextPathEntryDrafts.length} Path entries, ${nextNoteDrafts.length} Notes, ${nextTalkDrafts.length} Talks, and ${nextSnipDrafts.length} Snips`,
+      ? `Published ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, ${nextPathEntryDrafts.length} Path entries, ${nextNoteDrafts.length} Notes, ${nextTalkDrafts.length} Talks, ${nextSnipDrafts.length} Snips, and ${input.services.length} Work services`
+      : `Saved ${nextLinks.length} links, ${nextBlocks.length} blocks, ${nextProjects.length} projects, ${nextRepositories.length} repositories, ${nextStackItemDrafts.length} stack items, ${nextPathEntryDrafts.length} Path entries, ${nextNoteDrafts.length} Notes, ${nextTalkDrafts.length} Talks, and ${input.services.length} Work services`,
     {
       published: publish,
       linkCount: nextLinks.length,
@@ -3306,6 +3675,8 @@ async function persistSupabaseWorkspace(
       noteCount: nextNoteDrafts.length,
       talkCount: nextTalkDrafts.length,
       snipCount: nextSnipDrafts.length,
+      serviceCount: input.services.length,
+      availabilityStatus: input.availabilitySettings?.status ?? "open_to_conversations",
       handle: profileRow.handle,
     },
   );

@@ -10,6 +10,8 @@ import {
   type ProfileNoteDraft,
   type ProfileTalkDraft,
   type ProfileSnipDraft,
+  type ProfileWorkServiceDraft,
+  type AvailabilitySettingsDraft,
   type ProfileSectionDraft,
   type NoteHighlightConfiguration,
   type PublicBlockSnapshot,
@@ -22,6 +24,8 @@ import {
   type PublicNoteSnapshot,
   type PublicTalkSnapshot,
   type PublicSnipSnapshot,
+  type PublicWorkServiceSnapshot,
+  type PublicAvailabilitySnapshot,
   type PublicProfileSnapshot,
   type PublicSectionSnapshot,
 } from "@/types/nodivra";
@@ -81,6 +85,12 @@ type SortableNote = {
 };
 
 type SortableSnip = {
+  id: string;
+  position: number;
+  createdAt?: string;
+};
+
+type SortableWorkService = {
   id: string;
   position: number;
   createdAt?: string;
@@ -200,6 +210,14 @@ export function sortSnips<T extends SortableSnip>(snips: T[]) {
   });
 }
 
+export function sortWorkServices<T extends SortableWorkService>(services: T[]) {
+  return [...services].sort((left, right) => {
+    if (left.position !== right.position) return left.position - right.position;
+    if (left.createdAt && right.createdAt && left.createdAt !== right.createdAt) return right.createdAt.localeCompare(left.createdAt);
+    return left.id.localeCompare(right.id);
+  });
+}
+
 export function toPublicLinks(links: ProfileLinkDraft[]) {
   return sortLinks(links)
     .filter((link) => link.isEnabled && link.visibility !== "hidden")
@@ -228,6 +246,8 @@ export function buildPublicProfileSnapshot(
   notes: ProfileNoteDraft[] = [],
   talks: ProfileTalkDraft[] = [],
   snippets: ProfileSnipDraft[] = [],
+  availabilitySettings: AvailabilitySettingsDraft | null = null,
+  services: ProfileWorkServiceDraft[] = [],
 ): PublicProfileSnapshot {
   const publishedSections = toPublicSections(sections);
   const publishedProjects = toPublicProjects(projects);
@@ -238,6 +258,8 @@ export function buildPublicProfileSnapshot(
   const publishedNotes = toPublicNotes(notes, publishedProjects);
   const publishedTalks = toPublicTalks(talks, publishedProjects, publishedStackItems, publishedNotes);
   const publishedSnippets = toPublicSnippets(snippets, publishedProjects);
+  const publishedAvailability = toPublicAvailability(availabilitySettings);
+  const publishedServices = toPublicWorkServices(services, publishedProjects);
   const publishedBlocks = toPublicBlocks(blocks, publishedSections, publishedNotes);
 
   return {
@@ -264,9 +286,57 @@ export function buildPublicProfileSnapshot(
     publishedNotes,
     publishedTalks,
     publishedSnippets,
+    publishedAvailability,
+    publishedServices,
     publishedAt,
     isPublished: true,
   };
+}
+
+export function toPublicAvailability(settings: AvailabilitySettingsDraft | null): PublicAvailabilitySnapshot | null {
+  if (!settings || !settings.isEnabled) return null;
+  return {
+    status: settings.status,
+    headline: settings.headline,
+    detail: settings.detail,
+    contactCtaLabel: settings.contactCtaLabel,
+    contactCtaUrl: settings.contactCtaUrl,
+  };
+}
+
+export function toPublicWorkServices(
+  services: ProfileWorkServiceDraft[],
+  projects: PublicProjectSnapshot[],
+) {
+  const publishedProjectIds = new Set(projects.map((project) => project.id));
+  return sortWorkServices(services)
+    .filter((service) => service.isPublished)
+    .map<PublicWorkServiceSnapshot>((service) => ({
+      id: service.id,
+      title: service.title,
+      slug: service.slug,
+      description: service.description,
+      startingPriceText: service.startingPriceText,
+      deliveryTimeText: service.deliveryTimeText,
+      skills: service.skills,
+      availabilityStatus: service.availabilityStatus,
+      contactCtaLabel: service.contactCtaLabel,
+      contactCtaUrl: service.contactCtaUrl,
+      isFeatured: service.isFeatured,
+      position: service.position,
+      links: service.links
+        .filter((link) => link.isEnabled && (link.kind !== "project" || publishedProjectIds.has(link.projectId)))
+        .sort((left, right) => left.position - right.position)
+        .map((link) => ({
+          id: link.id,
+          kind: link.kind,
+          projectId: link.projectId,
+          label: link.label,
+          url: link.url,
+          position: link.position,
+          isEnabled: link.isEnabled,
+        })),
+    }));
 }
 
 export function toPublicSnippets(

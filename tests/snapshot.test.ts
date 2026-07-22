@@ -3,7 +3,7 @@ import {
   buildPublicProfileSnapshot,
   splitVisibleLinks,
 } from "@/lib/snapshot";
-import type { ProfileNoteDraft, ProfilePathEntryDraft, ProfileProjectDraft, ProfileRepositoryDraft, ProfileSnipDraft, ProfileStackCategoryDraft, ProfileStackItemDraft, ProfileTalkDraft } from "@/types/nodivra";
+import type { AvailabilitySettingsDraft, ProfileNoteDraft, ProfilePathEntryDraft, ProfileProjectDraft, ProfileRepositoryDraft, ProfileSnipDraft, ProfileStackCategoryDraft, ProfileStackItemDraft, ProfileTalkDraft, ProfileWorkServiceDraft } from "@/types/nodivra";
 
 describe("public snapshot helpers", () => {
   it("sorts and filters links before publishing", () => {
@@ -765,5 +765,101 @@ describe("public snapshot helpers", () => {
     expect(snapshot.publishedSnippets).toHaveLength(1);
     expect(snapshot.publishedSnippets[0]?.code).toBe("<script>never-run()</script>");
     expect(snapshot.publishedSnippets[0]?.links.map((link) => link.kind)).toEqual(["resource"]);
+  });
+
+  it("publishes only explicit Work services and enabled availability", () => {
+    const profile = {
+      id: "11111111-1111-1111-1111-111111111111",
+      ownerId: "11111111-1111-1111-1111-111111111111",
+      handle: "jamie-fontanilla",
+      displayName: "Jamie Fontanilla",
+      headline: "Product systems designer",
+      bio: "Bio",
+      locationText: "Austin, TX",
+      timezone: "UTC",
+      avatarInitials: "JF",
+      avatarUrl: "",
+      primaryCtaLabel: "",
+      primaryCtaUrl: "",
+      availabilityStatus: "available" as const,
+      isPublished: true,
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    };
+    const project: ProfileProjectDraft = {
+      id: "22222222-2222-4222-8222-222222222222",
+      profileId: profile.id,
+      slug: "published-project",
+      projectName: "Published project",
+      shortSummary: "A public project.",
+      caseStudyMarkdown: "A case study.",
+      role: "Designer",
+      technologies: ["TypeScript"],
+      projectType: "product",
+      startDate: "2026-01-01",
+      endDate: "",
+      status: "shipped",
+      coverImageUrl: "",
+      lessonsLearned: "Keep it clear.",
+      tags: [],
+      isFeatured: false,
+      isPublished: true,
+      position: 0,
+      links: [],
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+    const availability: AvailabilitySettingsDraft = {
+      id: "33333333-3333-4333-8333-333333333333",
+      profileId: profile.id,
+      status: "limited_availability",
+      headline: "A small roster",
+      detail: "Open to the right fit.",
+      contactCtaLabel: "Start a conversation",
+      contactCtaUrl: "https://example.com/contact",
+      isEnabled: true,
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+    const link = {
+      id: "44444444-4444-4444-8444-444444444444",
+      profileId: profile.id,
+      serviceId: "55555555-5555-4555-8555-555555555555",
+      kind: "project" as const,
+      projectId: project.id,
+      label: "Related project",
+      url: "",
+      position: 0,
+      isEnabled: true,
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+    const service: ProfileWorkServiceDraft = {
+      id: link.serviceId,
+      profileId: profile.id,
+      title: "Frontend systems audit",
+      slug: "frontend-systems-audit",
+      description: "A bounded review.",
+      startingPriceText: "Contact for estimate",
+      deliveryTimeText: "1-2 weeks",
+      skills: ["Accessibility"],
+      availabilityStatus: "available",
+      contactCtaLabel: "Start a conversation",
+      contactCtaUrl: "https://example.com/contact",
+      isPublished: true,
+      isFeatured: true,
+      position: 0,
+      links: [link],
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+    const privateService = { ...service, id: "66666666-6666-4666-8666-666666666666", slug: "private-service", isPublished: false, isFeatured: false, links: [] };
+    const snapshot = buildPublicProfileSnapshot(profile, [], profile.updatedAt, [], [], [project], [], [], [], [], [], [], [], availability, [service, privateService]);
+    expect(snapshot.publishedAvailability?.status).toBe("limited_availability");
+    expect(snapshot.publishedServices).toHaveLength(1);
+    expect(snapshot.publishedServices[0]?.links[0]?.kind).toBe("project");
+
+    const disabled = buildPublicProfileSnapshot(profile, [], profile.updatedAt, [], [], [], [], [], [], [], [], [], [], { ...availability, isEnabled: false }, [service]);
+    expect(disabled.publishedAvailability).toBeNull();
   });
 });

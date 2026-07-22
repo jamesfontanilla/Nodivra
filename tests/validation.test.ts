@@ -14,6 +14,8 @@ import {
   talkDraftSchema,
   stackItemDraftSchema,
   workspaceDraftSchema,
+  availabilitySettingsSchema,
+  workServiceDraftSchema,
 } from "@/lib/validation";
 
 describe("validation helpers", () => {
@@ -713,5 +715,56 @@ describe("validation helpers", () => {
     });
 
     expect(workspace.success).toBe(false);
+  });
+
+  it("validates Work services, safe inquiry URLs, and availability settings", () => {
+    const serviceId = "22222222-2222-4222-8222-222222222222";
+    const baseService = {
+      id: serviceId,
+      profileId,
+      title: "Frontend systems audit",
+      slug: "frontend-systems-audit",
+      description: "A bounded review of a live frontend and its next useful improvements.",
+      startingPriceText: "Contact for estimate",
+      deliveryTimeText: "1-2 weeks",
+      skills: ["Accessibility", "Design systems"],
+      availabilityStatus: "available",
+      contactCtaLabel: "Start a conversation",
+      contactCtaUrl: "https://example.com/contact",
+      isPublished: true,
+      isFeatured: true,
+      position: 0,
+      links: [],
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    } as const;
+    expect(workServiceDraftSchema.safeParse(baseService).success).toBe(true);
+    expect(workServiceDraftSchema.safeParse({ ...baseService, contactCtaUrl: "javascript:alert(1)" }).success).toBe(false);
+    expect(workServiceDraftSchema.safeParse({ ...baseService, description: "x".repeat(601) }).success).toBe(false);
+    expect(workServiceDraftSchema.safeParse({ ...baseService, isPublished: false, isFeatured: true }).success).toBe(false);
+    expect(availabilitySettingsSchema.safeParse({
+      id: "33333333-3333-4333-8333-333333333333",
+      profileId,
+      status: "available",
+      headline: "Open to good work",
+      detail: "A little context helps.",
+      contactCtaLabel: "Contact",
+      contactCtaUrl: "https://example.com/contact",
+      isEnabled: true,
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    }).success).toBe(true);
+    expect(availabilitySettingsSchema.safeParse({
+      id: "33333333-3333-4333-8333-333333333333",
+      profileId,
+      status: "unknown",
+      headline: "Open to good work",
+      detail: "A little context helps.",
+      contactCtaLabel: "Contact",
+      contactCtaUrl: "mailto:test@example.com",
+      isEnabled: true,
+      createdAt: "2026-07-18T00:00:00.000Z",
+      updatedAt: "2026-07-18T00:00:00.000Z",
+    }).success).toBe(false);
   });
 });

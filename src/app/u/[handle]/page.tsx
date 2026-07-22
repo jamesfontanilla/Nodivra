@@ -9,6 +9,7 @@ import { PublicPath } from "@/components/path-detail";
 import { PublicNotes } from "@/components/note-detail";
 import { PublicTalks } from "@/components/talk-detail";
 import { PublicSnippets } from "@/components/snip-detail";
+import { PublicWork } from "@/components/work-detail";
 import { Reveal } from "@/components/reveal";
 import { Badge, Panel } from "@/components/ui";
 import { buildPublicProfileMetadata } from "@/lib/metadata";
@@ -49,6 +50,12 @@ export default async function PublicProfilePage({
           <Badge tone="muted">Public profile</Badge>
         </div>
         <PublicProfileCard profile={activeProfile} mode="public" />
+        <PublicWork
+          availability={activeProfile.publishedAvailability}
+          services={activeProfile.publishedServices}
+          projects={activeProfile.publishedProjects}
+          profileHandle={activeProfile.handle}
+        />
         <PublicPath
           entries={activeProfile.publishedPathEntries}
           projects={activeProfile.publishedProjects}

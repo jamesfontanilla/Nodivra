@@ -11,6 +11,7 @@ import { PublicPath } from "@/components/path-detail";
 import { PublicNotes } from "@/components/note-detail";
 import { PublicTalks } from "@/components/talk-detail";
 import { PublicSnippets } from "@/components/snip-detail";
+import { PublicWork } from "@/components/work-detail";
 import { BlocksEditor } from "@/components/blocks-editor";
 import { ProjectsEditor } from "@/components/projects-editor";
 import { RepositoriesEditor } from "@/components/repositories-editor";
@@ -19,6 +20,7 @@ import { PathEditor } from "@/components/path-editor";
 import { NotesEditor } from "@/components/notes-editor";
 import { TalksEditor } from "@/components/talks-editor";
 import { SnipsEditor } from "@/components/snips-editor";
+import { WorkEditor } from "@/components/work-editor";
 import {
   ArrowUpRightIcon,
   CheckIcon,
@@ -43,6 +45,8 @@ import type {
   ProfileNoteDraft,
   ProfileTalkDraft,
   ProfileSnipDraft,
+  AvailabilitySettingsDraft,
+  ProfileWorkServiceDraft,
   ProfileSectionDraft,
   WorkspaceSnapshot,
 } from "@/types/nodivra";
@@ -66,7 +70,7 @@ type Notice = {
   message: string;
 } | null;
 
-type EditorTab = "profile" | "path" | "notes" | "talks" | "snips" | "blocks" | "projects" | "repos" | "stack";
+type EditorTab = "profile" | "path" | "notes" | "talks" | "snips" | "work" | "blocks" | "projects" | "repos" | "stack";
 type PreviewDevice = "desktop" | "mobile";
 
 function createDraftLink(profileId: string, position: number): ProfileLinkDraft {
@@ -165,6 +169,8 @@ export function DashboardEditor({
     workspace.notes,
     workspace.talks,
     workspace.snippets,
+    workspace.availabilitySettings,
+    workspace.services,
   );
   const status = statusCopy(workspace, isDirty);
   const publicUrl = workspace.profile.handle
@@ -334,6 +340,20 @@ export function DashboardEditor({
         updatedAt: new Date().toISOString(),
       },
       snippets,
+    }));
+  }
+
+  function patchWork(availabilitySettings: AvailabilitySettingsDraft, services: ProfileWorkServiceDraft[]) {
+    setIsDirty(true);
+    setWorkspace((current) => ({
+      ...current,
+      profile: {
+        ...current.profile,
+        isPublished: false,
+        updatedAt: new Date().toISOString(),
+      },
+      availabilitySettings,
+      services,
     }));
   }
 
@@ -684,6 +704,39 @@ export function DashboardEditor({
       createdAt: now,
       updatedAt: now,
     }));
+    const nextAvailabilitySettings: AvailabilitySettingsDraft = published.publishedAvailability
+      ? {
+          id: workspace.availabilitySettings.id,
+          profileId: workspace.profile.id,
+          status: published.publishedAvailability.status,
+          headline: published.publishedAvailability.headline,
+          detail: published.publishedAvailability.detail,
+          contactCtaLabel: published.publishedAvailability.contactCtaLabel,
+          contactCtaUrl: published.publishedAvailability.contactCtaUrl,
+          isEnabled: true,
+          createdAt: now,
+          updatedAt: now,
+        }
+      : { ...workspace.availabilitySettings, isEnabled: false, updatedAt: now };
+    const nextServices = published.publishedServices.map((service) => ({
+      id: service.id,
+      profileId: workspace.profile.id,
+      title: service.title,
+      slug: service.slug,
+      description: service.description,
+      startingPriceText: service.startingPriceText,
+      deliveryTimeText: service.deliveryTimeText,
+      skills: service.skills,
+      availabilityStatus: service.availabilityStatus,
+      contactCtaLabel: service.contactCtaLabel,
+      contactCtaUrl: service.contactCtaUrl,
+      isPublished: true,
+      isFeatured: service.isFeatured,
+      position: service.position,
+      links: service.links.map((link) => ({ ...link, profileId: workspace.profile.id, serviceId: service.id, createdAt: now, updatedAt: now })),
+      createdAt: now,
+      updatedAt: now,
+    }));
 
     setWorkspace((current) => ({
       ...current,
@@ -714,6 +767,8 @@ export function DashboardEditor({
       notes: nextNotes,
       talks: nextTalks,
       snippets: nextSnippets,
+      availabilitySettings: nextAvailabilitySettings,
+      services: nextServices,
     }));
     setIsDirty(false);
     setNotice({ tone: "success", message: "Draft restored to the latest published snapshot." });
@@ -919,6 +974,19 @@ export function DashboardEditor({
           >
             <span className="block font-medium">Talks</span>
             <span className={cn("mt-1 block text-xs", activeTab === "talks" ? "text-ink-700" : "text-sand-300/60")}>Appearances and ideas</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "work"}
+            onClick={() => setActiveTab("work")}
+            className={cn(
+              "flex-1 rounded-full px-4 py-3 text-left text-sm transition-[transform,background-color,color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.99] sm:flex-none sm:min-w-[180px]",
+              activeTab === "work" ? "bg-sand-100 text-ink-950" : "text-sand-200/70 hover:bg-white/10 hover:text-sand-50",
+            )}
+          >
+            <span className="block font-medium">Work</span>
+            <span className={cn("mt-1 block text-xs", activeTab === "work" ? "text-ink-700" : "text-sand-300/60")}>Services and availability</span>
           </button>
           <button
             type="button"
@@ -1371,6 +1439,15 @@ export function DashboardEditor({
               onChange={patchSnippets}
               fieldErrors={fieldErrors}
             />
+          ) : activeTab === "work" ? (
+            <WorkEditor
+              profileId={workspace.profile.id}
+              availabilitySettings={workspace.availabilitySettings}
+              services={workspace.services}
+              projects={workspace.projects}
+              onChange={patchWork}
+              fieldErrors={fieldErrors}
+            />
           ) : activeTab === "blocks" ? (
             <BlocksEditor
               profileId={workspace.profile.id}
@@ -1447,6 +1524,12 @@ export function DashboardEditor({
                 previewDevice === "mobile" ? "max-w-[390px]" : "max-w-none",
               )}>
                 <PublicProfileCard profile={livePreview} mode="preview" />
+                <PublicWork
+                  availability={livePreview.publishedAvailability}
+                  services={livePreview.publishedServices}
+                  projects={livePreview.publishedProjects}
+                  profileHandle={livePreview.handle}
+                />
                 <PublicPath
                   entries={livePreview.publishedPathEntries}
                   projects={livePreview.publishedProjects}
@@ -1578,7 +1661,7 @@ export function DashboardEditor({
       <div className="fixed inset-x-4 bottom-4 z-30 flex items-center gap-3 rounded-[1.5rem] bg-ink-950/95 p-2 shadow-halo ring-1 ring-white/15 backdrop-blur-xl lg:hidden">
         <div className="min-w-0 flex-1 px-3">
           <p className="truncate text-xs font-medium text-sand-50">{isDirty ? "Unsaved changes" : "All changes saved"}</p>
-          <p className="truncate text-[10px] uppercase tracking-[0.16em] text-sand-300/60">{activeTab === "blocks" ? "Blocks editor" : activeTab === "path" ? "Path editor" : activeTab === "notes" ? "Notes editor" : activeTab === "talks" ? "Talks editor" : activeTab === "snips" ? "Snips editor" : activeTab === "projects" ? "Projects editor" : activeTab === "repos" ? "Repos editor" : activeTab === "stack" ? "Stack editor" : "Profile editor"}</p>
+          <p className="truncate text-[10px] uppercase tracking-[0.16em] text-sand-300/60">{activeTab === "blocks" ? "Blocks editor" : activeTab === "path" ? "Path editor" : activeTab === "notes" ? "Notes editor" : activeTab === "talks" ? "Talks editor" : activeTab === "snips" ? "Snips editor" : activeTab === "work" ? "Work editor" : activeTab === "projects" ? "Projects editor" : activeTab === "repos" ? "Repos editor" : activeTab === "stack" ? "Stack editor" : "Profile editor"}</p>
         </div>
         <Button type="button" variant="secondary" disabled={!canSave} onClick={() => void saveWorkspace("save")}>
           {savingAction === "save" ? "Saving" : "Save"}

@@ -22,6 +22,8 @@ import {
   SNIP_LANGUAGES,
   SNIP_LINK_KINDS,
   SNIP_VISIBILITIES,
+  WORK_AVAILABILITY_STATUSES,
+  WORK_SERVICE_LINK_KINDS,
 } from "@/types/nodivra";
 
 const handlePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -1034,6 +1036,84 @@ export const snipDraftSchema = z
     }
   });
 
+export const availabilitySettingsSchema = z.object({
+  id: z.string().uuid(),
+  profileId: z.string().uuid(),
+  status: z.enum(WORK_AVAILABILITY_STATUSES),
+  headline: shortText(120, "Availability headlines must be 120 characters or fewer."),
+  detail: z.string().transform((value) => value.trim()).refine((value) => value.length <= 280, { message: "Availability details must be 280 characters or fewer." }),
+  contactCtaLabel: shortText(72, "Availability CTA labels must be 72 characters or fewer."),
+  contactCtaUrl: optionalSafeHttpUrl,
+  isEnabled: z.boolean().default(true),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1),
+}).strict().superRefine((data, context) => {
+  const hasLabel = data.contactCtaLabel.length > 0;
+  const hasUrl = data.contactCtaUrl.length > 0;
+  if (hasLabel !== hasUrl) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Availability CTA label and URL must either both be filled or both be empty.", path: [hasLabel ? "contactCtaUrl" : "contactCtaLabel"] });
+  }
+});
+
+export const workServiceLinkDraftSchema = z.object({
+  id: z.string().uuid(),
+  profileId: z.string().uuid(),
+  serviceId: z.string().uuid(),
+  kind: z.enum(WORK_SERVICE_LINK_KINDS),
+  projectId: z.string().uuid().or(z.literal("")),
+  label: requiredText(72, "Work link labels must be 72 characters or fewer."),
+  url: safeHttpUrl,
+  position: z.number().int().min(0),
+  isEnabled: z.boolean().default(true),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1),
+}).strict().superRefine((data, context) => {
+  if (data.kind === "project") {
+    if (!data.projectId) context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose a related project.", path: ["projectId"] });
+    if (data.url) context.addIssue({ code: z.ZodIssueCode.custom, message: "Project Work links use the internal project route.", path: ["url"] });
+  } else {
+    if (!data.url) context.addIssue({ code: z.ZodIssueCode.custom, message: "Work resource URL is required.", path: ["url"] });
+    if (data.projectId) context.addIssue({ code: z.ZodIssueCode.custom, message: "External Work links cannot reference a project.", path: ["projectId"] });
+  }
+});
+
+export const workServiceDraftSchema = z.object({
+  id: z.string().uuid(),
+  profileId: z.string().uuid(),
+  title: requiredText(96, "Work service titles must be 96 characters or fewer."),
+  slug: z.string().transform((value) => value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "")).refine((value) => value.length >= 1 && value.length <= 96, { message: "Work service slugs must be 1 to 96 characters." }),
+  description: requiredText(600, "Work service descriptions must be 600 characters or fewer."),
+  startingPriceText: shortText(72, "Starting price text must be 72 characters or fewer."),
+  deliveryTimeText: shortText(72, "Delivery time text must be 72 characters or fewer."),
+  skills: z.array(requiredText(32, "Work skills must be 32 characters or fewer.")).max(8, "Use eight skills or fewer."),
+  availabilityStatus: z.enum(WORK_AVAILABILITY_STATUSES),
+  contactCtaLabel: shortText(72, "Work CTA labels must be 72 characters or fewer."),
+  contactCtaUrl: optionalSafeHttpUrl,
+  isPublished: z.boolean().default(false),
+  isFeatured: z.boolean().default(false),
+  position: z.number().int().min(0),
+  links: z.array(workServiceLinkDraftSchema).max(4),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1),
+}).strict().superRefine((data, context) => {
+  if (data.isFeatured && !data.isPublished) context.addIssue({ code: z.ZodIssueCode.custom, message: "Only published Work services can be featured.", path: ["isFeatured"] });
+  const hasLabel = data.contactCtaLabel.length > 0;
+  const hasUrl = data.contactCtaUrl.length > 0;
+  if (hasLabel !== hasUrl) context.addIssue({ code: z.ZodIssueCode.custom, message: "Work CTA label and URL must either both be filled or both be empty.", path: [hasLabel ? "contactCtaUrl" : "contactCtaLabel"] });
+  const skills = new Set<string>();
+  for (const [index, skill] of data.skills.entries()) {
+    const normalized = skill.toLowerCase();
+    if (skills.has(normalized)) context.addIssue({ code: z.ZodIssueCode.custom, message: "Work skills must be unique.", path: ["skills", index] });
+    skills.add(normalized);
+  }
+  const linkIds = new Set<string>();
+  for (const [index, link] of data.links.entries()) {
+    if (link.profileId !== data.profileId || link.serviceId !== data.id) context.addIssue({ code: z.ZodIssueCode.custom, message: "Work links must belong to their service.", path: ["links", index] });
+    if (linkIds.has(link.id)) context.addIssue({ code: z.ZodIssueCode.custom, message: "Work link IDs must be unique.", path: ["links", index, "id"] });
+    linkIds.add(link.id);
+  }
+});
+
 export const workspaceDraftSchema = z.object({
   profile: profileDraftSchema,
   links: z.array(profileLinkDraftSchema).max(30),
@@ -1047,6 +1127,8 @@ export const workspaceDraftSchema = z.object({
   notes: z.array(noteDraftSchema).max(40).default([]),
   talks: z.array(talkDraftSchema).max(40).default([]),
   snippets: z.array(snipDraftSchema).max(40).default([]),
+  availabilitySettings: availabilitySettingsSchema.optional(),
+  services: z.array(workServiceDraftSchema).max(40).default([]),
 }).superRefine((data, context) => {
   const sectionIds = new Set<string>();
   for (const [index, section] of data.sections.entries()) {
@@ -1335,6 +1417,26 @@ export const workspaceDraftSchema = z.object({
   if (featuredSnipCount > 3) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose three featured Snips or fewer.", path: ["snippets"] });
   }
+
+  if (data.availabilitySettings && data.availabilitySettings.profileId !== data.profile.id) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Availability settings must belong to the current profile.", path: ["availabilitySettings", "profileId"] });
+  }
+
+  const serviceIds = new Set<string>();
+  const serviceSlugs = new Set<string>();
+  let featuredServiceCount = 0;
+  for (const [index, service] of data.services.entries()) {
+    if (serviceIds.has(service.id)) context.addIssue({ code: z.ZodIssueCode.custom, message: "Work service IDs must be unique.", path: ["services", index, "id"] });
+    if (serviceSlugs.has(service.slug)) context.addIssue({ code: z.ZodIssueCode.custom, message: "Work service slugs must be unique.", path: ["services", index, "slug"] });
+    if (service.profileId !== data.profile.id) context.addIssue({ code: z.ZodIssueCode.custom, message: "Work services must belong to the current profile.", path: ["services", index, "profileId"] });
+    if (service.isFeatured) featuredServiceCount += 1;
+    for (const [linkIndex, link] of service.links.entries()) {
+      if (link.kind === "project" && !workspaceProjectIds.has(link.projectId)) context.addIssue({ code: z.ZodIssueCode.custom, message: "Work project links must reference a project in this workspace.", path: ["services", index, "links", linkIndex, "projectId"] });
+    }
+    serviceIds.add(service.id);
+    serviceSlugs.add(service.slug);
+  }
+  if (featuredServiceCount > 3) context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose three featured Work services or fewer.", path: ["services"] });
 });
 
 export const publishWorkspaceSchema = workspaceDraftSchema;
@@ -1565,6 +1667,36 @@ export const publicProfileSnapshotSchema = z.object({
       isEnabled: z.boolean(),
     }).strict()),
   }).strict()).default([]),
+  publishedAvailability: z.object({
+    status: z.enum(WORK_AVAILABILITY_STATUSES),
+    headline: z.string(),
+    detail: z.string(),
+    contactCtaLabel: z.string(),
+    contactCtaUrl: safeHttpUrl,
+  }).strict().nullable().default(null),
+  publishedServices: z.array(z.object({
+    id: z.string().uuid(),
+    title: z.string(),
+    slug: z.string(),
+    description: z.string(),
+    startingPriceText: z.string(),
+    deliveryTimeText: z.string(),
+    skills: z.array(z.string()),
+    availabilityStatus: z.enum(WORK_AVAILABILITY_STATUSES),
+    contactCtaLabel: z.string(),
+    contactCtaUrl: safeHttpUrl,
+    isFeatured: z.boolean(),
+    position: z.number().int().min(0),
+    links: z.array(z.object({
+      id: z.string().uuid(),
+      kind: z.enum(WORK_SERVICE_LINK_KINDS),
+      projectId: z.string().uuid().or(z.literal("")),
+      label: z.string(),
+      url: safeHttpUrl,
+      position: z.number().int().min(0),
+      isEnabled: z.boolean(),
+    }).strict()),
+  }).strict()).default([]),
   publishedAt: z.string(),
   isPublished: z.boolean(),
 });
@@ -1581,6 +1713,8 @@ export type ProfilePathEntryDraftInput = z.infer<typeof pathEntryDraftSchema>;
 export type ProfileNoteDraftInput = z.infer<typeof noteDraftSchema>;
 export type ProfileTalkDraftInput = z.infer<typeof talkDraftSchema>;
 export type ProfileSnipDraftInput = z.infer<typeof snipDraftSchema>;
+export type AvailabilitySettingsDraftInput = z.infer<typeof availabilitySettingsSchema>;
+export type ProfileWorkServiceDraftInput = z.infer<typeof workServiceDraftSchema>;
 export type WorkspaceDraftInput = z.infer<typeof workspaceDraftSchema>;
 export type PublicLinkSnapshotInput = z.infer<typeof publicLinkSnapshotSchema>;
 export type PublicProfileSnapshotInput = z.infer<typeof publicProfileSnapshotSchema>;

@@ -16,6 +16,9 @@ import {
   type TalkLinkDraft,
   type ProfileSnipDraft,
   type SnipLinkDraft,
+  type AvailabilitySettingsDraft,
+  type ProfileWorkServiceDraft,
+  type WorkServiceLinkDraft,
   type PathHighlightDraft,
   type PathTechnologyDraft,
   type PathLinkDraft,
@@ -700,13 +703,13 @@ function createDemoPathEntries(profileId: string): ProfilePathEntryDraft[] {
         highlight("fc0f8f13-0c2b-4b0e-9001-000000000002", "ec0f8f13-0c2b-4b0e-9001-000000000001", "Turned dense product status into a sequence of understandable next decisions.", 1),
       ],
       technologies: [
-        technology("gc0f8f13-0c2b-4b0e-9001-000000000001", "ec0f8f13-0c2b-4b0e-9001-000000000001", "Next.js", 0),
-        technology("gc0f8f13-0c2b-4b0e-9001-000000000002", "ec0f8f13-0c2b-4b0e-9001-000000000001", "TypeScript", 1),
-        technology("gc0f8f13-0c2b-4b0e-9001-000000000003", "ec0f8f13-0c2b-4b0e-9001-000000000001", "Supabase", 2),
+        technology("9c0f8f13-0c2b-4b0e-9001-000000000001", "ec0f8f13-0c2b-4b0e-9001-000000000001", "Next.js", 0),
+        technology("9c0f8f13-0c2b-4b0e-9001-000000000002", "ec0f8f13-0c2b-4b0e-9001-000000000001", "TypeScript", 1),
+        technology("9c0f8f13-0c2b-4b0e-9001-000000000003", "ec0f8f13-0c2b-4b0e-9001-000000000001", "Supabase", 2),
       ],
       links: [
-        link("hc0f8f13-0c2b-4b0e-9001-000000000001", "ec0f8f13-0c2b-4b0e-9001-000000000001", "project", "Signal case study", "4c0f8f13-0c2b-4b0e-9001-000000000001", "", 0),
-        link("hc0f8f13-0c2b-4b0e-9001-000000000002", "ec0f8f13-0c2b-4b0e-9001-000000000001", "website", "Studio notes", "", "https://example.com/notes", 1),
+        link("8c0f8f13-0c2b-4b0e-9001-000000000001", "ec0f8f13-0c2b-4b0e-9001-000000000001", "project", "Signal case study", "4c0f8f13-0c2b-4b0e-9001-000000000001", "", 0),
+        link("8c0f8f13-0c2b-4b0e-9001-000000000002", "ec0f8f13-0c2b-4b0e-9001-000000000001", "website", "Studio notes", "", "https://example.com/notes", 1),
       ],
       isPublished: true,
       position: 0,
@@ -730,12 +733,12 @@ function createDemoPathEntries(profileId: string): ProfilePathEntryDraft[] {
         highlight("fc0f8f13-0c2b-4b0e-9001-000000000004", "ec0f8f13-0c2b-4b0e-9001-000000000002", "Created durable handoff patterns for teams without dedicated design operations.", 1),
       ],
       technologies: [
-        technology("gc0f8f13-0c2b-4b0e-9001-000000000004", "ec0f8f13-0c2b-4b0e-9001-000000000002", "Figma", 0),
-        technology("gc0f8f13-0c2b-4b0e-9001-000000000005", "ec0f8f13-0c2b-4b0e-9001-000000000002", "React", 1),
-        technology("gc0f8f13-0c2b-4b0e-9001-000000000006", "ec0f8f13-0c2b-4b0e-9001-000000000002", "Accessibility", 2),
+        technology("9c0f8f13-0c2b-4b0e-9001-000000000004", "ec0f8f13-0c2b-4b0e-9001-000000000002", "Figma", 0),
+        technology("9c0f8f13-0c2b-4b0e-9001-000000000005", "ec0f8f13-0c2b-4b0e-9001-000000000002", "React", 1),
+        technology("9c0f8f13-0c2b-4b0e-9001-000000000006", "ec0f8f13-0c2b-4b0e-9001-000000000002", "Accessibility", 2),
       ],
       links: [
-        link("hc0f8f13-0c2b-4b0e-9001-000000000003", "ec0f8f13-0c2b-4b0e-9001-000000000002", "project", "Quiet Hours case study", "4c0f8f13-0c2b-4b0e-9001-000000000002", "", 0),
+        link("8c0f8f13-0c2b-4b0e-9001-000000000003", "ec0f8f13-0c2b-4b0e-9001-000000000002", "project", "Quiet Hours case study", "4c0f8f13-0c2b-4b0e-9001-000000000002", "", 0),
       ],
       isPublished: true,
       position: 1,
@@ -758,8 +761,8 @@ function createDemoPathEntries(profileId: string): ProfilePathEntryDraft[] {
         highlight("fc0f8f13-0c2b-4b0e-9001-000000000005", "ec0f8f13-0c2b-4b0e-9001-000000000003", "Studied how language, structure, and feedback shape trust in interfaces.", 0),
       ],
       technologies: [
-        technology("gc0f8f13-0c2b-4b0e-9001-000000000007", "ec0f8f13-0c2b-4b0e-9001-000000000003", "Research", 0),
-        technology("gc0f8f13-0c2b-4b0e-9001-000000000008", "ec0f8f13-0c2b-4b0e-9001-000000000003", "Writing", 1),
+        technology("9c0f8f13-0c2b-4b0e-9001-000000000007", "ec0f8f13-0c2b-4b0e-9001-000000000003", "Research", 0),
+        technology("9c0f8f13-0c2b-4b0e-9001-000000000008", "ec0f8f13-0c2b-4b0e-9001-000000000003", "Writing", 1),
       ],
       links: [],
       isPublished: true,
@@ -1021,6 +1024,98 @@ limit 8;`,
   ];
 }
 
+function createDemoAvailability(profileId: string): AvailabilitySettingsDraft {
+  const timestamp = now();
+  return {
+    id: "ff0f8f13-0c2b-4b0e-9001-000000000001",
+    profileId,
+    status: "open_to_conversations",
+    headline: "Open to thoughtful product and platform work.",
+    detail: "I keep the roster small so the work can stay close, considered, and useful.",
+    contactCtaLabel: "Start a conversation",
+    contactCtaUrl: "https://example.com/contact",
+    isEnabled: true,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+function createDemoServices(profileId: string): ProfileWorkServiceDraft[] {
+  const timestamp = now();
+  const link = (id: string, serviceId: string, kind: WorkServiceLinkDraft["kind"], label: string, projectId: string, url: string, position: number): WorkServiceLinkDraft => ({
+    id,
+    profileId,
+    serviceId,
+    kind,
+    projectId,
+    label,
+    url,
+    position,
+    isEnabled: true,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  return [
+    {
+      id: "ff0f8f13-0c2b-4b0e-9001-000000000002",
+      profileId,
+      title: "Product surface direction",
+      slug: "product-surface-direction",
+      description: "Clarify the product story, interaction model, and first durable surface before the build gathers weight.",
+      startingPriceText: "Contact for estimate",
+      deliveryTimeText: "2-3 weeks",
+      skills: ["Product direction", "UX systems", "Prototyping"],
+      availabilityStatus: "limited_availability",
+      contactCtaLabel: "Talk through the shape",
+      contactCtaUrl: "https://example.com/contact",
+      isPublished: true,
+      isFeatured: true,
+      position: 0,
+      links: [link("ff0f8f13-0c2b-4b0e-9001-000000000011", "ff0f8f13-0c2b-4b0e-9001-000000000002", "project", "Signal case study", "4c0f8f13-0c2b-4b0e-9001-000000000001", "", 0)],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "ff0f8f13-0c2b-4b0e-9001-000000000003",
+      profileId,
+      title: "Frontend systems audit",
+      slug: "frontend-systems-audit",
+      description: "Find the friction in a live frontend, then leave behind a calmer system your team can keep using.",
+      startingPriceText: "Contact for estimate",
+      deliveryTimeText: "1–2 weeks",
+      skills: ["Frontend architecture", "Accessibility", "Design systems"],
+      availabilityStatus: "available",
+      contactCtaLabel: "Ask about an audit",
+      contactCtaUrl: "https://example.com/contact",
+      isPublished: true,
+      isFeatured: true,
+      position: 1,
+      links: [link("ff0f8f13-0c2b-4b0e-9001-000000000012", "ff0f8f13-0c2b-4b0e-9001-000000000003", "resource", "Read the studio notes", "", "https://example.com/notes", 0)],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "ff0f8f13-0c2b-4b0e-9001-000000000004",
+      profileId,
+      title: "Workshop facilitation",
+      slug: "workshop-facilitation",
+      description: "A focused working session for teams that need to make a complicated product question legible.",
+      startingPriceText: "Contact for estimate",
+      deliveryTimeText: "Half day",
+      skills: ["Facilitation", "Product strategy"],
+      availabilityStatus: "not_available",
+      contactCtaLabel: "Join the waitlist",
+      contactCtaUrl: "https://example.com/contact",
+      isPublished: false,
+      isFeatured: false,
+      position: 2,
+      links: [],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ];
+}
+
 function createAuditLogs(profileId: string): AuditLogEntry[] {
   const timestamp = now();
   return [
@@ -1053,6 +1148,8 @@ function createDemoStore(): WorkspaceSnapshot {
   const notes = createDemoNotes(profile.id);
   const talks = createDemoTalks(profile.id);
   const snippets = createDemoSnips(profile.id);
+  const availabilitySettings = createDemoAvailability(profile.id);
+  const services = createDemoServices(profile.id);
   return {
     profile,
     links,
@@ -1066,6 +1163,8 @@ function createDemoStore(): WorkspaceSnapshot {
     notes,
     talks,
     snippets,
+    availabilitySettings,
+    services,
     published: buildPublicProfileSnapshot(
       profile,
       links,
@@ -1080,6 +1179,8 @@ function createDemoStore(): WorkspaceSnapshot {
       notes,
       talks,
       snippets,
+      availabilitySettings,
+      services,
     ),
     auditLogs: createAuditLogs(profile.id),
     mode: "demo",
@@ -1123,6 +1224,8 @@ export function getDemoWorkspaceSnapshot(): WorkspaceSnapshot {
     notes: structuredClone(store.notes),
     talks: structuredClone(store.talks),
     snippets: structuredClone(store.snippets),
+    availabilitySettings: structuredClone(store.availabilitySettings),
+    services: structuredClone(store.services),
     published: structuredClone(store.published),
     auditLogs: structuredClone(store.auditLogs),
     mode: "demo",
