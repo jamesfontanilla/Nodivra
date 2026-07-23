@@ -24,6 +24,8 @@ import {
   SNIP_VISIBILITIES,
   WORK_AVAILABILITY_STATUSES,
   WORK_SERVICE_LINK_KINDS,
+  INQUIRY_STATUSES,
+  INQUIRY_TYPES,
 } from "@/types/nodivra";
 
 const handlePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -1114,6 +1116,60 @@ export const workServiceDraftSchema = z.object({
   }
 });
 
+const inquirySlug = z
+  .string()
+  .transform((value) => value.trim().toLowerCase())
+  .refine((value) => value.length === 0 || /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value), {
+    message: "Use a lowercase slug.",
+  })
+  .refine((value) => value.length <= 96, {
+    message: "Related slugs must be 96 characters or fewer.",
+  });
+
+function plainInquiryText(max: number, label: string) {
+  function hasUnsafeControlCharacters(value: string) {
+    return Array.from(value).some((character) => {
+      const code = character.charCodeAt(0);
+      return code <= 8 || code === 11 || code === 12 || (code >= 14 && code <= 31);
+    });
+  }
+
+  return z
+    .string()
+    .transform((value) => value.trim())
+    .refine((value) => value.length >= 1 && value.length <= max, {
+      message: `${label} must be 1 to ${max} characters.`,
+    })
+    .refine((value) => !/[<>]/.test(value) && !hasUnsafeControlCharacters(value), {
+      message: `${label} must be plain text.`,
+    });
+}
+
+export const publicInquirySchema = z.object({
+  handle: z
+    .string()
+    .transform(normalizeHandle)
+    .refine((value) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) && value.length >= 3 && value.length <= 32, {
+      message: "Profile handle is invalid.",
+    }),
+  name: plainInquiryText(120, "Name"),
+  contactText: plainInquiryText(200, "Contact details"),
+  subject: plainInquiryText(160, "Subject"),
+  message: plainInquiryText(4000, "Message"),
+  inquiryType: z.enum(INQUIRY_TYPES),
+  consent: z.literal(true, { errorMap: () => ({ message: "Consent is required before sending." }) }),
+  relatedServiceSlug: inquirySlug.default(""),
+  relatedProjectSlug: inquirySlug.default(""),
+  honeypot: z.string().trim().max(80).default(""),
+}).strict();
+
+export const inquiryStatusSchema = z.enum(INQUIRY_STATUSES);
+
+export const ownerInquiryActionSchema = z.object({
+  id: z.string().uuid(),
+  status: inquiryStatusSchema,
+}).strict();
+
 export const workspaceDraftSchema = z.object({
   profile: profileDraftSchema,
   links: z.array(profileLinkDraftSchema).max(30),
@@ -1715,6 +1771,8 @@ export type ProfileTalkDraftInput = z.infer<typeof talkDraftSchema>;
 export type ProfileSnipDraftInput = z.infer<typeof snipDraftSchema>;
 export type AvailabilitySettingsDraftInput = z.infer<typeof availabilitySettingsSchema>;
 export type ProfileWorkServiceDraftInput = z.infer<typeof workServiceDraftSchema>;
+export type PublicInquiryInput = z.infer<typeof publicInquirySchema>;
+export type InquiryStatusInput = z.infer<typeof inquiryStatusSchema>;
 export type WorkspaceDraftInput = z.infer<typeof workspaceDraftSchema>;
 export type PublicLinkSnapshotInput = z.infer<typeof publicLinkSnapshotSchema>;
 export type PublicProfileSnapshotInput = z.infer<typeof publicProfileSnapshotSchema>;

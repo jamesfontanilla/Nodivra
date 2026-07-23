@@ -21,6 +21,7 @@ import { NotesEditor } from "@/components/notes-editor";
 import { TalksEditor } from "@/components/talks-editor";
 import { SnipsEditor } from "@/components/snips-editor";
 import { WorkEditor } from "@/components/work-editor";
+import { InboxPanel } from "@/components/inbox";
 import {
   ArrowUpRightIcon,
   CheckIcon,
@@ -47,6 +48,7 @@ import type {
   ProfileSnipDraft,
   AvailabilitySettingsDraft,
   ProfileWorkServiceDraft,
+  InboxInquiry,
   ProfileSectionDraft,
   WorkspaceSnapshot,
 } from "@/types/nodivra";
@@ -70,7 +72,7 @@ type Notice = {
   message: string;
 } | null;
 
-type EditorTab = "profile" | "path" | "notes" | "talks" | "snips" | "work" | "blocks" | "projects" | "repos" | "stack";
+type EditorTab = "profile" | "inbox" | "path" | "notes" | "talks" | "snips" | "work" | "blocks" | "projects" | "repos" | "stack";
 type PreviewDevice = "desktop" | "mobile";
 
 function createDraftLink(profileId: string, position: number): ProfileLinkDraft {
@@ -134,9 +136,11 @@ function formatTimestamp(value: string) {
 
 export function DashboardEditor({
   initialWorkspace,
+  initialInquiries,
   demoMode,
 }: {
   initialWorkspace: WorkspaceSnapshot;
+  initialInquiries: InboxInquiry[];
   demoMode: boolean;
 }) {
   const [workspace, setWorkspace] = useState(initialWorkspace);
@@ -887,6 +891,19 @@ export function DashboardEditor({
           <button
             type="button"
             role="tab"
+            aria-selected={activeTab === "inbox"}
+            onClick={() => setActiveTab("inbox")}
+            className={cn(
+              "flex-1 rounded-full px-4 py-3 text-left text-sm transition-[transform,background-color,color] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.99] sm:flex-none sm:min-w-[180px]",
+              activeTab === "inbox" ? "bg-sand-100 text-ink-950" : "text-sand-200/70 hover:bg-white/10 hover:text-sand-50",
+            )}
+          >
+            <span className="block font-medium">Inbox</span>
+            <span className={cn("mt-1 block text-xs", activeTab === "inbox" ? "text-ink-700" : "text-sand-300/60")}>Private collaboration notes</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={activeTab === "profile"}
             onClick={() => setActiveTab("profile")}
             className={cn(
@@ -1405,6 +1422,45 @@ export function DashboardEditor({
             </div>
           </Panel>
             </>
+          ) : activeTab === "inbox" ? (
+            <InboxPanel
+              initialInquiries={initialInquiries}
+              services={workspace.services.filter((service) => service.isPublished).map((service) => ({
+                id: service.id,
+                title: service.title,
+                slug: service.slug,
+                description: service.description,
+                startingPriceText: service.startingPriceText,
+                deliveryTimeText: service.deliveryTimeText,
+                skills: service.skills,
+                availabilityStatus: service.availabilityStatus,
+                contactCtaLabel: service.contactCtaLabel,
+                contactCtaUrl: service.contactCtaUrl,
+                isFeatured: service.isFeatured,
+                position: service.position,
+                links: [],
+              }))}
+              projects={workspace.projects.filter((project) => project.isPublished).map((project) => ({
+                id: project.id,
+                slug: project.slug,
+                projectName: project.projectName,
+                shortSummary: project.shortSummary,
+                caseStudyMarkdown: project.caseStudyMarkdown,
+                role: project.role,
+                technologies: project.technologies,
+                projectType: project.projectType,
+                startDate: project.startDate,
+                endDate: project.endDate,
+                status: project.status,
+                coverImageUrl: project.coverImageUrl,
+                lessonsLearned: project.lessonsLearned,
+                tags: project.tags,
+                isFeatured: project.isFeatured,
+                position: project.position,
+                links: [],
+              }))}
+              demoMode={demoMode}
+            />
           ) : activeTab === "path" ? (
             <PathEditor
               profileId={workspace.profile.id}
@@ -1661,7 +1717,7 @@ export function DashboardEditor({
       <div className="fixed inset-x-4 bottom-4 z-30 flex items-center gap-3 rounded-[1.5rem] bg-ink-950/95 p-2 shadow-halo ring-1 ring-white/15 backdrop-blur-xl lg:hidden">
         <div className="min-w-0 flex-1 px-3">
           <p className="truncate text-xs font-medium text-sand-50">{isDirty ? "Unsaved changes" : "All changes saved"}</p>
-          <p className="truncate text-[10px] uppercase tracking-[0.16em] text-sand-300/60">{activeTab === "blocks" ? "Blocks editor" : activeTab === "path" ? "Path editor" : activeTab === "notes" ? "Notes editor" : activeTab === "talks" ? "Talks editor" : activeTab === "snips" ? "Snips editor" : activeTab === "work" ? "Work editor" : activeTab === "projects" ? "Projects editor" : activeTab === "repos" ? "Repos editor" : activeTab === "stack" ? "Stack editor" : "Profile editor"}</p>
+          <p className="truncate text-[10px] uppercase tracking-[0.16em] text-sand-300/60">{activeTab === "blocks" ? "Blocks editor" : activeTab === "inbox" ? "Inbox" : activeTab === "path" ? "Path editor" : activeTab === "notes" ? "Notes editor" : activeTab === "talks" ? "Talks editor" : activeTab === "snips" ? "Snips editor" : activeTab === "work" ? "Work editor" : activeTab === "projects" ? "Projects editor" : activeTab === "repos" ? "Repos editor" : activeTab === "stack" ? "Stack editor" : "Profile editor"}</p>
         </div>
         <Button type="button" variant="secondary" disabled={!canSave} onClick={() => void saveWorkspace("save")}>
           {savingAction === "save" ? "Saving" : "Save"}

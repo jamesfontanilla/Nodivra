@@ -10,6 +10,7 @@ import { PublicNotes } from "@/components/note-detail";
 import { PublicTalks } from "@/components/talk-detail";
 import { PublicSnippets } from "@/components/snip-detail";
 import { PublicWork } from "@/components/work-detail";
+import { PublicInquiryForm } from "@/components/inbox";
 import { Reveal } from "@/components/reveal";
 import { Badge, Panel } from "@/components/ui";
 import { buildPublicProfileMetadata } from "@/lib/metadata";
@@ -30,8 +31,10 @@ export async function generateMetadata({
 
 export default async function PublicProfilePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ handle: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { handle } = await params;
   const profile = await getPublicProfile(handle);
@@ -41,6 +44,9 @@ export default async function PublicProfilePage({
   }
 
   const activeProfile = profile ?? notFound();
+  const query = searchParams ? await searchParams : {};
+  const serviceSlug = typeof query.service === "string" ? query.service : "";
+  const projectSlug = typeof query.project === "string" ? query.project : "";
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -50,6 +56,13 @@ export default async function PublicProfilePage({
           <Badge tone="muted">Public profile</Badge>
         </div>
         <PublicProfileCard profile={activeProfile} mode="public" />
+        <PublicInquiryForm
+          handle={activeProfile.handle}
+          services={activeProfile.publishedServices}
+          projects={activeProfile.publishedProjects}
+          defaultServiceSlug={serviceSlug}
+          defaultProjectSlug={projectSlug}
+        />
         <PublicWork
           availability={activeProfile.publishedAvailability}
           services={activeProfile.publishedServices}

@@ -16,6 +16,8 @@ import {
   workspaceDraftSchema,
   availabilitySettingsSchema,
   workServiceDraftSchema,
+  publicInquirySchema,
+  ownerInquiryActionSchema,
 } from "@/lib/validation";
 
 describe("validation helpers", () => {
@@ -766,5 +768,27 @@ describe("validation helpers", () => {
       createdAt: "2026-07-18T00:00:00.000Z",
       updatedAt: "2026-07-18T00:00:00.000Z",
     }).success).toBe(false);
+  });
+
+  it("keeps public Inbox submissions bounded, plain text, and consented", () => {
+    const inquiry = {
+      handle: "jamie-fontanilla",
+      name: "Morgan Lee",
+      contactText: "morgan@example.com",
+      subject: "A useful collaboration",
+      message: "We are exploring a new developer surface and would value a thoughtful review.",
+      inquiryType: "project",
+      consent: true,
+      relatedServiceSlug: "frontend-systems-audit",
+      relatedProjectSlug: "signal",
+      honeypot: "",
+    };
+
+    expect(publicInquirySchema.safeParse(inquiry).success).toBe(true);
+    expect(publicInquirySchema.safeParse({ ...inquiry, consent: false }).success).toBe(false);
+    expect(publicInquirySchema.safeParse({ ...inquiry, message: "x".repeat(4001) }).success).toBe(false);
+    expect(publicInquirySchema.safeParse({ ...inquiry, relatedServiceSlug: "unsafe slug!" }).success).toBe(false);
+    expect(ownerInquiryActionSchema.safeParse({ id: "44444444-4444-4444-8444-444444444444", status: "replied" }).success).toBe(true);
+    expect(ownerInquiryActionSchema.safeParse({ id: "44444444-4444-4444-8444-444444444444", status: "deleted" }).success).toBe(false);
   });
 });

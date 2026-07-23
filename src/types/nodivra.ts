@@ -792,6 +792,47 @@ export interface PublicAvailabilitySnapshot {
   contactCtaUrl: string;
 }
 
+export const INQUIRY_TYPES = [
+  "project",
+  "service",
+  "speaking",
+  "mentoring",
+  "other",
+] as const;
+
+export type InquiryType = (typeof INQUIRY_TYPES)[number];
+
+export const INQUIRY_STATUSES = [
+  "unread",
+  "read",
+  "archived",
+  "replied",
+  "spam",
+] as const;
+
+export type InquiryStatus = (typeof INQUIRY_STATUSES)[number];
+
+export const INQUIRY_LINK_KINDS = ["service", "project"] as const;
+export type InquiryLinkKind = (typeof INQUIRY_LINK_KINDS)[number];
+
+export interface InboxInquiry {
+  id: string;
+  profileId: string;
+  name: string;
+  contactText: string;
+  subject: string;
+  message: string;
+  inquiryType: InquiryType;
+  status: InquiryStatus;
+  consentAt: string;
+  source: "public_profile";
+  relatedServiceId: string;
+  relatedProjectId: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string;
+}
+
 export interface PublicStackCategorySnapshot {
   id: string;
   key: StackCategoryKey;

@@ -1,6 +1,7 @@
 import { DashboardEditor } from "@/components/dashboard-editor";
 import { ArrowUpRightIcon, SparkIcon } from "@/components/icons";
 import { Button, Panel, Badge } from "@/components/ui";
+import { getOwnerInquiries } from "@/lib/inbox";
 import { getViewerContext, getWorkspaceSnapshot } from "@/lib/workspace";
 import { siteName } from "@/lib/site";
 
@@ -43,10 +44,11 @@ export default async function DashboardPage() {
   }
 
   const workspace = await getWorkspaceSnapshot(viewer);
+  const inquiries = await getOwnerInquiries(viewer);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-[90rem] px-4 py-8 sm:px-6 lg:px-8">
-      <DashboardEditor initialWorkspace={workspace} demoMode={viewer.mode === "demo"} />
+      <DashboardEditor initialWorkspace={workspace} initialInquiries={inquiries} demoMode={viewer.mode === "demo"} />
     </main>
   );
 }
